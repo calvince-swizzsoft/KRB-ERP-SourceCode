@@ -1,0 +1,212 @@
+#pragma warning disable AA0005, AA0008, AA0018, AA0021, AA0072, AA0137, AA0201, AA0204, AA0206, AA0218, AA0228, AL0254, AL0424, AS0011, AW0006 // ForNAV settings
+tableextension 56005 GLAccountExt extends "G/L Account"
+{
+
+    fields
+    {
+        field(10001; "GIFI Code"; Code[10])
+        {
+            Caption = 'GIFI Code';
+        }
+        field(27000; "SAT Account Code"; Code[20])
+        {
+            Caption = 'SAT Account Code';
+        }
+        field(50000; "Budget Controlled"; Boolean)
+        {
+        }
+        field(50004; "Expense Code"; Code[10])
+        {
+            TableRelation = "Expense Code";
+
+            trigger OnValidate()
+            begin
+                //Expense code only applicable if account type is posting and Budgetary control is applicable
+                TestField("Account Type", "account type"::Posting);
+                TestField("Budget Controlled", true);
+            end;
+        }
+        field(50005; "Donor defined Account"; Boolean)
+        {
+            Description = 'Select if the Account is donor Defined';
+        }
+        field(54245; "Grant Expense"; Boolean)
+        {
+        }
+        field(54246; Status; Option)
+        {
+            Editable = true;
+            OptionMembers = New,"Pending Approval",Approved,Rejected;
+        }
+        field(54247; "Responsibility Center"; Code[20])
+        {
+        }
+        field(54248; "Old No."; Code[20])
+        {
+        }
+        field(54249; "Date Created"; Date)
+        {
+        }
+        field(54250; "Created By"; Code[20])
+        {
+        }
+        field(1003; "GL Account Balance"; Decimal)
+        {
+            CalcFormula = Sum("G/L Entry".Amount WHERE("G/L Account No." = FIELD("No."),
+                                                        "Global Dimension 1 Code" = FIELD("Global Dimension 1 Filter"),
+                                                        "Global Dimension 2 Code" = FIELD("Global Dimension 2 Filter")));
+            Caption = 'Balance';
+            Editable = false;
+            FieldClass = FlowField;
+        }
+
+        field(54252; StatementOfFP; Option)
+        {
+            OptionMembers = "  ",Cashinhand,InterestonMemberdeposits,Cashatbank,GrossLoanPortfolio,PropertyEquipment,AllowanceforLoanLoss,PrepaymentsSundryReceivables,Investmentincompanies,IntangibleAssets,"Other Assets";
+        }
+        field(54253; StatementOfFP2; Option)
+        {
+            OptionCaption = '  ,Nonwithdrawabledeposits,TaxPayable,DeferredTaxLiability,OtherLiabilities,ExternalBorrowings,ShareCapital,StatutoryReserve,OtherReserves,RevaluationReserves,PrioryarRetainedEarnings,CurrentYrSurplus';
+            OptionMembers = "  ",Nonwithdrawabledeposits,TaxPayable,DeferredTaxLiability,OtherLiabilities,ExternalBorrowings,ShareCapital,StatutoryReserve,OtherReserves,RevaluationReserves,PrioryarRetainedEarnings,CurrentYrSurplus;
+        }
+        field(54254; "Form2F(Statement of C Income)"; Option)
+        {
+
+            OptionMembers = " ",OtherOperatingincome,NetFeeandcommission,InterestExpenses,OtherInterestIncome,InterestonLoanPortfolio,FeesCommissiononLoanPortfolio,GovernmentSecurities,InvestmentinCompaniesshares,nterestExpenseonDeposits,DividendExpenses,OtherFinancialExpense,FeesCommissionExpense,OtherExpense,ProvisionforLoanLosses;
+        }
+        field(54255; "Form2F1(Statement of C Income)"; Option)
+        {
+            OptionCaption = '  ,PersonnelExpenses,GovernanceExpenses,MarketingExpenses,DepreciationandAmortizationCharges,AdministrativeExpenses,Taxes,NonOperatingIncome,NonOperatingExpense,OtherFinancialExpense,ValueofLoansRecovered';
+            OptionMembers = "  ",PersonnelExpenses,GovernanceExpenses,MarketingExpenses,DepreciationandAmortizationCharges,AdministrativeExpenses,Taxes,NonOperatingIncome,NonOperatingExpense,OtherFinancialExpense,ValueofLoansRecovered;
+        }
+        field(54256; "Capital adequecy"; Option)
+        {
+            OptionCaption = '  ,ShareCapital,StatutoryReserve,RetainedEarnings,LoansandAdvances,Cash,InvestmentsinSubsidiary,Otherreserves,GovernmentSecurities,DepositsandBalancesatOtherInstitutions,Otherassets,PropertyandEquipment,TotalDepositsLiabilities,Investments,NetSurplusaftertax';
+            OptionMembers = "  ",ShareCapital,StatutoryReserve,RetainedEarnings,LoansandAdvances,Cash,InvestmentsinSubsidiary,Otherreserves,GovernmentSecurities,DepositsandBalancesatOtherInstitutions,Otherassets,"PropertyandEquipment ",TotalDepositsLiabilities,Investments,NetSurplusaftertax;
+        }
+        field(54257; Liquidity; Option)
+        {
+            OptionCaption = ' ,LocalNotes,BankBalances,GovSecurities,balanceswithotherfinancialinsti,TotalOtherliabilitiesNew,TimeDeposits';
+            OptionMembers = " ",LocalNotes,BankBalances,GovSecurities,balanceswithotherfinancialinsti,TotalOtherliabilitiesNew,TimeDeposits;
+        }
+        field(54258; "Form2E(investment)"; Option)
+        {
+            OptionCaption = '  ,Core_Capital,Equityinvestment,Otherinvestments,subsidiaryandrelatedentities,otherassets,totaldeposits';
+            OptionMembers = "  ",Core_Capital,Equityinvestment,Otherinvestments,subsidiaryandrelatedentities,otherassets,totaldeposits;
+        }
+        field(54259; "Form 2H other disc"; Option)
+        {
+            OptionCaption = '  ,AllowanceForLoanLoss,Core_Capital,Deposits liabilities';
+            OptionMembers = "  ",AllowanceForLoanLoss,Core_Capital,"Deposits liabilities";
+        }
+        field(54260; "Form2E(investment)New"; Option)
+        {
+            OptionCaption = '  ,Nonearningassets,Landbuilding';
+            OptionMembers = "  ",Nonearningassets,Landbuilding;
+        }
+        field(54261; "Form2E(investment)Land"; Option)
+        {
+            OptionCaption = ' ,LandBuilding';
+            OptionMembers = " ",LandBuilding;
+        }
+        field(54262; ChangesInEquity; Option)
+        {
+            OptionCaption = ' ,ShareCapital,StatutoryReserve,GeneralReserve,RevaluationReserve,RetainedEarnings,honararia';
+            OptionMembers = " ",ShareCapital,StatutoryReserve,GeneralReserve,RevaluationReserve,RetainedEarnings,honararia;
+        }
+        field(54263; Assets; Option)
+        {
+            OptionMembers = " ",CashAndEquivalents,ReceivablesAndPrepayements,LoansAndAdvances,FinancialAssets,propertyplantandEquipment,Intangiableassets;
+            DataClassification = ToBeClassified;
+        }
+        field(54264; MkopoLiabilities; Option)
+        {
+            OptionMembers = " ",TradeandotherPayables,LoanLoss,MemberDeposits,dividendsandInterestPayable,Honoria,Taxpayable;
+            DataClassification = ToBeClassified;
+        }
+        field(54265; FinancedBy; Option)
+        {
+            OptionMembers = " ",StatutoryReserves,RevenueReserves,Sharecapital;
+        }
+        field(54266; Financials; Option)
+        {
+            OptionMembers = " ",Revenue,InterestIncome,Expenses;
+        }
+        field(54267; PersonnelExRe; Option)
+        {
+            OptionMembers = " ","Personnel Expenses","Personnel Revenue";
+        }
+
+        //Income
+        // field(54268; Incomes; Option)
+        // {
+        //     OptionMembers = " ",InterestOnLoans,InterestExpenses,OtherOperatingIncome,InvestmentIncome,GorvernanceExpenses,AdministrationExpenses,PersonelExpenses,OperatingExpenses,FinancialExpense,MarketingExpenses,DepreciationAmmortisation,IncomeTaxExpense;
+        //     DataClassification = ToBeClassified;
+        // }
+        field(54268; Incomes; Option)
+        {
+            OptionMembers = " ",InterestOnLoans,InterestExpenses,OtherOperatingIncome,InvestmentIncome,GorvernanceExpenses,AdministrationExpenses,PersonelExpenses,OperatingExpenses,FinancialExpense,MarketingExpenses,DepreciationAmmortisation,IncomeTaxExpense;
+            OptionCaption = ' ,Interest on Loans,Interest Expenses,Other Operating Income,Investment Income,Governance Expenses,Administration Expenses,Personnel Expenses,Operating Expenses,Financial Expenses,Marketing Expenses,Depreciation & Amortisation,Income Tax Expense';
+            DataClassification = ToBeClassified;
+        }
+
+
+        field(54269; Others; option)
+        {
+            OptionMembers = " ",PriorYearAdjustments,ShortTermLiabilities;
+        }
+
+        // to accommodate multiple cash flow categories
+
+        // field(54270; CashFlowCategory; option)
+        // {
+        //     Caption = 'Cash Flow Category';
+        //     OptionMembers = " ",InterestIncomeReceipts,OtherIncomeReceipts,PaymentsToEmployeesAndSuppliers,HonorariaPaid,TaxPaidAdjustment,TradeAndOtherReceivables,PayablesAndAccruals,MembersLoans,PurchaseOfAssets,PurchaseOfInvestments,MembersInterestPaid,RepaymentOfBorrowings,ShareCapitalContribution,MembersDeposit,CashAndEquivalents,TaxPayable;
+        //     OptionCaption = ' ,Interest Income Receipts,Other Income Receipts,Payments to Employees and Suppliers,Honoraria Paid,Tax Paid Adjustment,Trade and Other Receivables,Payables and Accruals,Members Loans,Purchase of Assets,Purchase of Investments,Members Interest Paid,Repayment of Borrowings,Share Capital Contribution,Members Deposit,CashAndEquivalents,TaxPayable';
+        // }
+
+
+        // field(54271; CashFlowCategory2; option)
+        // {
+        //     Caption = 'Additional Cash Flow Category';
+        //     OptionMembers = " ",InterestIncomeReceipts,OtherIncomeReceipts,PaymentsToEmployeesAndSuppliers,HonorariaPaid,TaxPaidAdjustment,TradeAndOtherReceivables,PayablesAndAccruals,MembersLoans,PurchaseOfAssets,PurchaseOfInvestments,MembersInterestPaid,RepaymentOfBorrowings,ShareCapitalContribution,MembersDeposit,CashAndEquivalents,TaxPayable;
+        //     OptionCaption = ' ,Interest Income Receipts,Other Income Receipts,Payments to Employees and Suppliers,Honoraria Paid,Tax Paid Adjustment,Trade and Other Receivables,Payables and Accruals,Members Loans,Purchase of Assets,Purchase of Investments,Members Interest Paid,Repayment of Borrowings,Share Capital Contribution,Members Deposit,CashAndEquivalents,TaxPayable';
+        // }
+
+        field(54270; CashFlowCategory; option)
+        {
+            Caption = 'Cash Flow Category';
+            OptionMembers = " ",IncomeReceipts,PaymentsToEmployeesAndSuppliers,TradeAndOtherReceivables,PayablesAndAccruals,PurchaseOfAssets,MembersInterestPaid,RepaymentOfBorrowings,ShareCapitalContribution,MembersDeposit,CashAndEquivalents,TaxPayable,Honoraria,TaxPaid,OtherIncome,LoanAdvances,PurchaseOfInvestments;
+            OptionCaption = ' ,Income Receipts,Payments to Employees and Suppliers,Trade and Other Receivables,Payables and Accruals,Purchase of Assets,Members Interest Paid,Repayment of Borrowings,Share Capital Contribution,Members Deposit,Cash & Equivalents,Tax Payable,Honoraria, Tax Paid,Other Income, Loan and Advances,Purchase of Investments';
+        }
+
+
+    }
+
+    keys
+    {
+        key(Key10; "GIFI Code")
+        {
+        }
+        key(Key11; "Account Category")
+        {
+        }
+    }
+
+    fieldgroups
+    {
+
+    }
+    var
+        Text000: label 'You cannot change %1 because there are one or more ledger entries associated with this account.';
+        Text001: label 'You cannot change %1 because this account is part of one or more budgets.';
+        GLSetup: Record "General Ledger Setup";
+        CostAccSetup: Record "Cost Accounting Setup";
+        DimMgt: Codeunit DimensionManagement;
+        CostAccMgt: Codeunit "Cost Account Mgt";
+        GLSetupRead: Boolean;
+        Text002: label 'There is another %1: %2; which refers to the same %3, but with a different %4: %5.';
+        NoAccountCategoryMatchErr: label 'There is no subcategory description for %1 that matches ''%2''.', Comment = '%1=account category value, %2=the user input.';
+        GLEntry: Record "G/L Entry";
+        Usersetup: Record "User Setup";
+}

@@ -1,0 +1,14 @@
+# Generated Business Central packages and debugger caches
+*.app
+.alpackages/
+.snapshots/
+.vscode/.alcache/
+.vscode/rad.json
+
+# Local credentials and environment overrides
+.env
+.env.*
+!.env.example
+*.pfx
+*.p12
+*.key

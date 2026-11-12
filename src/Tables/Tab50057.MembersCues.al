@@ -1,0 +1,157 @@
+table 50057 "Members Cues"
+{
+
+    fields
+    {
+        field(1; "User ID"; Code[50])
+        {
+            TableRelation = "User Setup"."User ID";
+        }
+        field(2; "All Members"; Integer)
+        {
+            CalcFormula = count(Customer where("Customer Posting Group" = filter('Member')));
+            FieldClass = FlowField;
+        }
+
+        field(3; "Active Members"; Integer)
+        {
+            CalcFormula = count(Customer where(Status = const("Active"), "Customer Posting Group" = filter('Member')));
+            FieldClass = FlowField;
+        }
+        field(4; "NonActive Mbrs"; Integer)
+        {
+            CalcFormula = count(Customer where(Status = filter('Dormant|Non-Active|Deceased'), "Customer Posting Group" = filter('Member')));
+            FieldClass = FlowField;
+        }
+
+        field(5; Deceased; Integer)
+        {
+            CalcFormula = count(Customer where(Status = const(Deceased), "Customer Posting Group" = filter('Member')));
+            FieldClass = FlowField;
+        }
+
+        field(6; Exited; Integer)
+        {
+            CalcFormula = count(Customer where(Status = const(Withdrawal), "Customer Posting Group" = filter('Member')));
+            FieldClass = FlowField;
+        }
+        field(8; "Requests to Approve"; Integer)
+        {
+            CalcFormula = count("Approval Entry" where("Approver ID" = field("User ID"),
+             "Table ID" = const(DATABASE::"Loans Register"),
+                                                        Status = filter(Open)));
+            Caption = 'Loans Requests to Approve';
+            FieldClass = FlowField;
+        }
+        field(9; "Requests Sent for Approval"; Integer)
+        {
+            CalcFormula = count("Approval Entry" where("Sender ID" = field("User ID"),
+            "Table ID" = const(DATABASE::"Loans Register"),
+                                                        Status = filter(Open)));
+            Caption = 'Loans Requests Sent for Approval';
+            FieldClass = FlowField;
+        }
+
+
+
+
+        field(10; "Awaiting Exit"; Integer)
+        {
+            CalcFormula = count(Customer where(Status = const("Awaiting Withdrawal"), "Customer Posting Group" = filter('Member')));
+            FieldClass = FlowField;
+        }
+        field(13; Female; Integer)
+        {
+            CalcFormula = count(Customer where(Gender = Const(Female), "Customer Posting Group" = filter('Member')));
+            FieldClass = FlowField;
+        }
+        field(14; Male; Integer)
+        {
+            CalcFormula = count(Customer where(Gender = Const(Male), "Customer Posting Group" = filter('Member')));
+            FieldClass = FlowField;
+        }
+        field(15; "Requests Sent for Approval Al."; Integer)
+        {
+            CalcFormula = count("Approval Entry" where("Sender ID" = field("User ID"),
+            "Table ID" = const(DATABASE::"Membership Applications"),
+                                                        Status = filter(Open)));
+            Caption = 'MemberApp Requests Sent for Approval';
+            FieldClass = FlowField;
+        }
+        field(16; "MemberApp Requests to Approve"; Integer)
+        {
+            CalcFormula = count("Approval Entry" where("Approver ID" = field("User ID"),
+             "Table ID" = const(DATABASE::"Membership Applications"),
+                                                        Status = filter(Open)));
+            Caption = 'MemberApp Requests to Approve';
+            FieldClass = FlowField;
+        }
+
+        field(17; "KRB Employee"; Integer)
+        {
+            CalcFormula = count(Customer where(Status = const("Active"), "Customer Posting Group" = filter('Member'), "Account Category" = conST("regular account"), "Employment Info" = const("KRB Employee")));
+            FieldClass = FlowField;
+
+        }
+        field(18; "Non KRB Employee"; Integer)
+        {
+            CalcFormula = count(Customer where(Status = const("Active"), "Customer Posting Group" = filter('Member'), "Account Category" = conST("regular account"), "Employment Info" = CONST("Non KRB")));
+            FieldClass = FlowField;
+
+        }
+
+        field(19; "Junior Members"; Integer)
+        {
+            CalcFormula = count(Customer where(Status = const("Active"), "Customer Posting Group" = filter('Member'), "Account Category" = const("Junior Account")));
+            FieldClass = FlowField;
+
+        }
+
+        field(20; "Ex KRB Employee"; Integer)
+        {
+            CalcFormula = count(Customer where(Status = const("Active"), "Customer Posting Group" = filter('Member'), "Account Category" = conST("regular account"), "Employment Info" = CONST("Ex KRB Employee")));
+            FieldClass = FlowField;
+
+        }
+
+        field(21; "Leave Approval Requests"; Integer)
+        {
+            CalcFormula = count("Approval Entry" where("Sender ID" = field("User ID"),
+            "Table ID" = const(DATABASE::"Leave Application"),
+                                                        Status = filter(Open)));
+            Caption = 'Leave Applications Sent for Approval';
+            FieldClass = FlowField;
+        }
+
+        field(22; "Leave Requests to Approve"; Integer)
+        {
+            CalcFormula =
+        count("Approval Entry"
+            where(
+                "Approver ID" = field("User ID"),
+                "Table ID" = const(Database::"Leave Application"),
+                Status = filter(Open)
+            ));
+            Caption = 'Leave Requests to Approve';
+            FieldClass = FlowField;
+
+
+        }
+
+    }
+
+    keys
+    {
+        key(Key1; "User ID")
+
+
+        {
+            Clustered = true;
+        }
+    }
+
+    fieldgroups
+    {
+    }
+}
+

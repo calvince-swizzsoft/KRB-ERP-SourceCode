@@ -1,0 +1,213 @@
+#pragma warning disable AA0005, AA0008, AA0018, AA0021, AA0072, AA0137, AA0201, AA0204, AA0206, AA0218, AA0228, AL0254, AL0424, AS0011, AW0006 // ForNAV settings
+Report 56504 "Members Loans Guarantors"
+{
+    DefaultLayout = RDLC;
+    RDLCLayout = './Layout/Members Loans Guarantors.rdlc';
+
+    dataset
+    {
+        dataitem("Members Register"; Customer)
+        {
+            RequestFilterFields = "No.", Name, "FOSA Account No.";
+            column(ReportForNavId_1000000000; 1000000000)
+            {
+            }
+            column(FORMAT_TODAY_0_4_; Format(Today, 0, 4))
+            {
+            }
+            column(COMPANYNAME; COMPANYNAME)
+            {
+            }
+            column(Company_Name; Company.Name)
+            {
+            }
+            column(Company_Address; Company.Address)
+            {
+            }
+            column(Company_Address_2; Company."Address 2")
+            {
+            }
+            column(Company_Phone_No; Company."Phone No.")
+            {
+            }
+            column(Company_Fax_No; Company."Fax No.")
+            {
+            }
+            column(Company_Picture; Company.Picture)
+            {
+            }
+            column(Company_Email; Company."E-Mail")
+            {
+            }
+            column(CurrReport_PAGENO; CurrReport.PageNo)
+            {
+            }
+            column(USERID; UserId)
+            {
+            }
+            column(No_Members; "Members Register"."No.")
+            {
+            }
+            column(Name_Members; "Members Register".Name)
+            {
+            }
+            column(PhoneNo_Members; "Members Register"."Phone No.")
+            {
+            }
+            column(OutstandingBalance_Members; "Members Register"."Outstanding Balance")
+            {
+            }
+            column(FNo; FNo)
+            {
+            }
+            dataitem("Loans Guarantee Details"; "Loans Guarantee Details")
+            {
+                DataItemLink = "Loanees  No" = field("No.");
+                DataItemTableView = where(Substituted = filter(false));
+                RequestFilterFields = "Member No", "Loan No";
+                column(ReportForNavId_1000000001; 1000000001)
+                {
+                }
+                column(AmountGuaranteedPerGuarantor; AmountGuaranteedPerGuarantor)
+                {
+                    Caption = 'Amount Guaranteed Per Guarantor';
+                }
+                column(NoOfGuarantors; NoOfGuarantors)
+                {
+                    Caption = 'Number of Guarantors';
+                }
+                column(NoOfLoansGuaranteed_LoanGuarantors; "Loans Guarantee Details"."No Of Loans Guaranteed")
+                {
+                }
+                column(Name_LoanGuarantors; "Loans Guarantee Details".Name)
+                {
+                }
+                column(MemberNo_LoanGuarantors; "Loans Guarantee Details"."Member No")
+                {
+                }
+                column(LoanNo_LoanGuarantors; "Loans Guarantee Details"."Loan No")
+                {
+                }
+
+                column(EntryNo; EntryNo)
+                {
+                }
+                column(OutStandingBal; "Loans Guarantee Details"."Outstanding Balance")
+                {
+                }
+                column(TotalOutstandingBal; TotalOutstandingBal)
+                {
+                }
+                column(EmployerCode; EmployerCode)
+                {
+                }
+
+                dataitem("Loans Register"; "Loans Register")
+                {
+                    DataItemLink = "Loan  No." = field("Loan No");
+                    DataItemTableView = where("Approved Amount" = filter(<> 0));
+
+
+                    column(Loan_Product_Type_Name; "Loan Product Type Name") { }
+                    column(Approved_Amount; "Approved Amount") { }
+                }
+
+                trigger OnAfterGetRecord()
+                var
+                    GuaranteeDetailsCount: Record "Loans Guarantee Details";
+                    LoansRegister: Record "Loans Register";
+                    LoanApprovedAmount: Decimal;
+                begin
+                    //Loan.GET();
+
+                    Loansr.Reset;
+                    Loansr.SetRange(Loansr."Loan  No.", "Loan No");
+
+                    if Loansr.Find('-') then begin
+                        Loansr.CalcFields("Outstanding Balance", "Oustanding Interest");
+                        MemberNo := Loansr."Client Code";
+                        MemberName := Loansr."Client Name";
+                        EmployerCode := Loansr."Employer Code";
+                        LoanApprovedAmount := Loansr."Approved Amount"; // Get approved amount from the lookup
+                    end;
+
+                    // Count the number of guarantors for this specific loan (including those with zero outstanding balance)
+                    GuaranteeDetailsCount.Reset;
+                    GuaranteeDetailsCount.SetRange("Loan No", "Loan No");
+                    GuaranteeDetailsCount.SetRange(Substituted, false);
+                    NoOfGuarantors := GuaranteeDetailsCount.Count;
+
+                    // Calculate amount guaranteed per guarantor using approved amount - ensure all guarantors get the same amount
+                    if (NoOfGuarantors > 0) and (LoanApprovedAmount <> 0) then
+                        AmountGuaranteedPerGuarantor := LoanApprovedAmount / NoOfGuarantors
+                    else
+                        AmountGuaranteedPerGuarantor := 0;
+                end;
+            }
+
+            trigger OnAfterGetRecord()
+            begin
+
+                //Members.CALCFIELDS(Members."Outstanding Balance",Members."Current Shares",Members."Loans Guaranteed");
+                //AvailableSH:=Members."Current Shares"-Members."Loans Guaranteed";
+
+                FNo := FNo + 1;
+            end;
+
+            trigger OnPreDataItem()
+            begin
+                LastFieldNo := FieldNo("No.");
+                Company.Get();
+                Company.CalcFields(Company.Picture);
+            end;
+        }
+    }
+
+    requestpage
+    {
+        layout
+        {
+            area(content)
+            {
+                group(DateRange)
+                {
+                    Caption = 'Date Range';
+                    field(StartDate; StartDate)
+                    {
+                        ApplicationArea = All;
+                        Caption = 'Start Date';
+                        ToolTip = 'Select the start date for the report.';
+                    }
+                    field(EndDate; EndDate)
+                    {
+                        ApplicationArea = All;
+                        Caption = 'End Date';
+                        ToolTip = 'Select the end date for the report.';
+                    }
+                }
+            }
+        }
+    }
+
+    labels
+    {
+    }
+
+    var
+        LastFieldNo: Integer;
+        FooterPrinted: Boolean;
+        AvailableSH: Decimal;
+        MemberNo: Text;
+        MemberName: Text;
+        EmployerCode: Text;
+        Loansr: Record "Loans Register";
+        EntryNo: Integer;
+        TotalOutstandingBal: Decimal;
+        OutStandingBal: Decimal;
+        FNo: Integer;
+        Company: Record "Company Information";
+        StartDate: Date;
+        EndDate: Date;
+        NoOfGuarantors: Integer;
+        AmountGuaranteedPerGuarantor: Decimal;
+}
