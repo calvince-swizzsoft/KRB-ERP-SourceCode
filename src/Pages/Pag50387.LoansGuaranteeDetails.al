@@ -36,7 +36,7 @@ page 50387 "Loans Guarantee Details"
                 field("Amont Guaranteed"; Rec."Amont Guaranteed")
                 {
                     ApplicationArea = Basic;
-                    Visible = false;
+                    Caption = 'Amount Guaranteed';
                 }
                 field("Self Guarantee"; Rec."Self Guarantee")
                 {

@@ -114,7 +114,7 @@
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>Number of Shares In Words</Value>
+                                  <Value>Share Capital in Words</Value>
                                   <Style>
                                     <FontWeight>Normal</FontWeight>
                                   </Style>
@@ -193,7 +193,7 @@
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>Number of Shares In Figures</Value>
+                                  <Value>Share Capital in Figures</Value>
                                   <Style>
                                     <FontSize>11pt</FontSize>
                                     <FontWeight>Normal</FontWeight>

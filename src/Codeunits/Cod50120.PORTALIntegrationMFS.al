@@ -700,6 +700,9 @@ Codeunit 50120 "PORTALIntegration MFS"
         InStr: InStream;
         Base64Convert: Codeunit "Base64 Convert";
         ImageBase64: Text;
+        IdFrontBase64: Text;
+        IdBackBase64: Text;
+        KraPinDocumentBase64: Text;
     begin
         objMember.RESET;
         objMember.SETRANGE(objMember."No.", MemberNo);
@@ -716,12 +719,37 @@ Codeunit 50120 "PORTALIntegration MFS"
                 ImageBase64 := '';
             END;
 
+            if objMember."Identification Document Front".HasValue then begin
+                Clear(TempBlob);
+                TempBlob.CreateOutStream(OutStr);
+                objMember."Identification Document Front".ExportStream(OutStr);
+                TempBlob.CreateInStream(InStr);
+                IdFrontBase64 := Base64Convert.ToBase64(InStr);
+            end;
+
+            if objMember."Identification Document Back".HasValue then begin
+                Clear(TempBlob);
+                TempBlob.CreateOutStream(OutStr);
+                objMember."Identification Document Back".ExportStream(OutStr);
+                TempBlob.CreateInStream(InStr);
+                IdBackBase64 := Base64Convert.ToBase64(InStr);
+            end;
+
+            if objMember."KRA Pin Picture".HasValue then begin
+                Clear(TempBlob);
+                TempBlob.CreateOutStream(OutStr);
+                objMember."KRA Pin Picture".ExportStream(OutStr);
+                TempBlob.CreateInStream(InStr);
+                KraPinDocumentBase64 := Base64Convert.ToBase64(InStr);
+            end;
+
             info := objMember."No." + ':' + objMember.Name + ':' + objMember."E-Mail (Personal)" + ':' + FORMAT(objMember.Status) + ':' +
                     objMember."Mobile Phone No" + ':' + objMember."ID No." + ':' + FORMAT(objMember."Date of Birth") + ':' +
                     FORMAT(objMember."Payroll/Staff No") + ':' + FORMAT(objMember.Gender) + ':' + FORMAT(objMember.Pin) + ':' +
                     FORMAT(objMember."Country/Region Code") + ':' + FORMAT(objMember.City) + ':' + FORMAT(objMember."Registration Date") + ':' +
                     FORMAT(objMember."Bank Code") + ':' + FORMAT(objMember."Bank Branch Code") + ':' + FORMAT(objMember."Bank Account No.") + ':' +
-                    ImageBase64;
+                    // Keep the profile photo last for existing consumers.
+                    'PROFILE_DOCUMENTS_V1:' + IdFrontBase64 + ':' + IdBackBase64 + ':' + KraPinDocumentBase64 + ':' + ImageBase64;
         END;
     end;
 
@@ -768,7 +796,7 @@ Codeunit 50120 "PORTALIntegration MFS"
                     + '"LoanNo":"' + FORMAT(onlineloans."Application No") + '"'
                     + ',"ProductType":"' + onlineloans."Loan Type" + '"'
                     + ',"ProductName":"' + onlineloans."Loan Product Type Name" + '"'
-                    + ',"Installments":"' + FORMAT(onlineloans."Repayment Period") + '"'
+                    + ',"Installments":"' + Format(GetOnlineLoanRepaymentPeriod(onlineloans)) + '"'
                     + ',"InterestRate":"' + FORMAT(OnlineLoansInterestRate) + '"'
                     + ',"RequestedAmount":"' + FORMAT(onlineloans."Loan Amount") + '"'
                     + ',"LoanSubmittedStatus":"' + FORMAT(onlineloans."submitted") + '"'
@@ -780,7 +808,7 @@ Codeunit 50120 "PORTALIntegration MFS"
                     + '"LoanNo":"' + FORMAT(onlineloans."Application No") + '"'
                     + ',"ProductType":"' + onlineloans."Loan Type" + '"'
                     + ',"ProductName":"' + onlineloans."Loan Product Type Name" + '"'
-                    + ',"Installments":"' + FORMAT(onlineloans.Installments) + '"'
+                    + ',"Installments":"' + Format(GetOnlineLoanRepaymentPeriod(onlineloans)) + '"'
                     + ',"InterestRate":"' + FORMAT(OnlineLoansInterestRate) + '"'
                     + ',"RequestedAmount":"' + FORMAT(onlineloans."Loan Amount") + '"'
                      + ',"LoanApplicationStatus":"' + FORMAT(onlineloans."Application Status") + '"'
@@ -813,7 +841,7 @@ Codeunit 50120 "PORTALIntegration MFS"
                     + '"LoanNo":"' + FORMAT(onlineloans."Application No") + '"'
                     + ',"ProductType":"' + onlineloans."Loan Type" + '"'
                     + ',"ProductName":"' + onlineloans."Loan Product Type Name" + '"'
-                    + ',"Installments":"' + FORMAT(onlineloans.Installments) + '"'
+                    + ',"Installments":"' + Format(GetOnlineLoanRepaymentPeriod(onlineloans)) + '"'
                     + ',"InterestRate":"' + FORMAT(onlineloans."Interest Rate") + '"'
                     + ',"RequestedAmount":"' + FORMAT(onlineloans."Loan Amount") + '"'
                     + ',"InterestCalculationMethod":"' + FORMAT(onlineloans."Interest Calculation Method") + '"'
@@ -822,28 +850,41 @@ Codeunit 50120 "PORTALIntegration MFS"
         END;
     end;
 
+    local procedure GetOnlineLoanRepaymentPeriod(OnlineLoan: Record "Online Loan Application"): Integer
+    begin
+        if OnlineLoan."Repayment Period" > 0 then
+            exit(OnlineLoan."Repayment Period");
+
+        exit(OnlineLoan.Installments);
+    end;
+
     procedure FnGetNOKProfile(MemberNo: Code[20]) info: Text
     var
-        memberNominee: Record "Members Nominee";
+        Nominee: Record "Members Nominee";
+        Records: JsonArray;
+        Entry: JsonObject;
     begin
-        objMember.RESET;
-        objMember.SETRANGE(objMember."No.", MemberNo);
-        IF objMember.FIND('-') THEN BEGIN
-            memberNominee.Reset();
-            memberNominee.SetRange(memberNominee."Account No", objMember."No.");
-            if memberNominee.Find('-') then begin
-                REPEAT
-                    info := info + FORMAT(memberNominee."Name") + ':' + FORMAT(memberNominee."Date of Birth") + ':' + FORMAT(memberNominee."%Allocation") + ':' + FORMAT(memberNominee.Relationship) + '::';
-                UNTIL memberNominee.NEXT() = 0;
-            end;
-            // objNextKin.RESET();
-            // objNextKin.SETRANGE("Account No", objMember."No.");
-            // IF objNextKin.FIND('-') THEN BEGIN
-            //     REPEAT
-            //         info := info + FORMAT(objNextKin."Name") + ':' + FORMAT(objNextKin."Date of Birth") + ':' + FORMAT(objNextKin."%Allocation") + ':' + FORMAT(objNextKin.Relationship) + '::';
-            //     UNTIL objNextKin.NEXT() = 0;
-            // END;
-        END;
+        Nominee.SetRange("Account No", MemberNo);
+        if Nominee.FindSet() then
+            repeat
+                Clear(Entry);
+                Entry.Add('Name', Nominee.Name);
+                Entry.Add('Relationship', Nominee.Relationship);
+                Entry.Add('Email', Nominee.Email);
+                Entry.Add('Allocation', Nominee."%Allocation");
+                Entry.Add('Telephone', Nominee.Telephone);
+                Entry.Add('Address', Nominee.Address);
+                Entry.Add('IDNumber', Nominee."ID No.");
+                Entry.Add('Guardian', Nominee.Guardian);
+                Entry.Add('IsGuardian', Nominee."Next Of Kin Type" = Nominee."Next Of Kin Type"::Guardian);
+                if Nominee."Date of Birth" = 0D then
+                    Entry.Add('DOB', '')
+                else
+                    Entry.Add('DOB', Format(Nominee."Date of Birth", 0, 9));
+                Entry.Add('IsBeneficiary', Nominee.Beneficiary);
+                Records.Add(Entry);
+            until Nominee.Next() = 0;
+        Records.WriteTo(info);
     end;
 
     procedure FnUpdateMonthlyContrib("Member No": Code[30]; "Updated Fig": Decimal)
@@ -1888,14 +1929,30 @@ Codeunit 50120 "PORTALIntegration MFS"
     end;
 
     procedure fnGetNextofkin(MemberNumber: Code[20]) return: Text
+    var
+        NextOfKin: Record "Members Next Kin Details";
+        Records: JsonArray;
+        Entry: JsonObject;
     begin
-        objNextKin.Reset;
-        objNextKin.SetRange("Account No", MemberNumber);
-        if objNextKin.Find('-') then begin
+        NextOfKin.SetRange("Account No", MemberNumber);
+        if NextOfKin.FindSet() then
             repeat
-                return := return + objNextKin."Name" + ':::' + objNextKin.Relationship + ':::' + objNextKin.Email + ':::' + objNextKin.Telephone + '::::';
-            until objNextKin.Next = 0;
-        end;
+                Clear(Entry);
+                Entry.Add('Name', NextOfKin.Name);
+                Entry.Add('Relationship', NextOfKin.Relationship);
+                Entry.Add('Email', NextOfKin.Email);
+                Entry.Add('Allocation', NextOfKin."%Allocation");
+                Entry.Add('Telephone', NextOfKin.Telephone);
+                Entry.Add('Address', NextOfKin.Address);
+                Entry.Add('IDNumber', NextOfKin."ID No.");
+                if NextOfKin."Date of Birth" = 0D then
+                    Entry.Add('DOB', '')
+                else
+                    Entry.Add('DOB', Format(NextOfKin."Date of Birth", 0, 9));
+                Entry.Add('IsBeneficiary', NextOfKin.Beneficiary);
+                Records.Add(Entry);
+            until NextOfKin.Next() = 0;
+        Records.WriteTo(return);
     end;
 
     procedure fnGetNominees(MemberNumber: Code[20]) return: Text
@@ -1925,11 +1982,17 @@ Codeunit 50120 "PORTALIntegration MFS"
  ): Text
     var
         objNextKin: Record "Members Next Kin Details";
+        SavedNextOfKin: Record "Members Next Kin Details";
+        ExpectedIdNumber: Code[20];
     begin
 
 
         if NextOfKinRelationshipType = '' then
             exit('Relationship type is required');
+
+        if StrLen(DelChr(NextOfKinIdNumber, '<>', ' ')) > MaxStrLen(ExpectedIdNumber) then
+            exit('Next of kin ID number cannot exceed 20 characters');
+        ExpectedIdNumber := NextOfKinIdNumber;
 
         objNextKin.SetRange("Account No", MemberNumber);
         objNextKin.SetRange(Name, NextOfKinName);
@@ -1955,6 +2018,9 @@ Codeunit 50120 "PORTALIntegration MFS"
             if NextOfKinAddress <> '' then
                 objNextKin.Address := NextOfKinAddress;
 
+            if ExpectedIdNumber <> '' then
+                objNextKin.Validate("ID No.", ExpectedIdNumber);
+
             if NextOfKinEmail <> '' then
                 objNextKin.Email := NextOfKinEmail;
 
@@ -1964,6 +2030,11 @@ Codeunit 50120 "PORTALIntegration MFS"
 
 
             objNextKin.Insert(true);
+            if ExpectedIdNumber <> '' then begin
+                SavedNextOfKin.Get(MemberNumber, objNextKin.Name);
+                if SavedNextOfKin."ID No." <> ExpectedIdNumber then
+                    Error('The ERP could not confirm the saved next-of-kin ID number.');
+            end;
             exit('Next of kin added successfuly');
 
         end else begin
@@ -1981,6 +2052,9 @@ Codeunit 50120 "PORTALIntegration MFS"
             if NextOfKinAddress <> '' then
                 objNextKin.Address := NextOfKinAddress;
 
+            if ExpectedIdNumber <> '' then
+                objNextKin.Validate("ID No.", ExpectedIdNumber);
+
             if NextOfKinEmail <> '' then
                 objNextKin.Email := NextOfKinEmail;
 
@@ -1989,6 +2063,11 @@ Codeunit 50120 "PORTALIntegration MFS"
 
 
             objNextKin.Modify(true);
+            if ExpectedIdNumber <> '' then begin
+                SavedNextOfKin.Get(MemberNumber, objNextKin.Name);
+                if SavedNextOfKin."ID No." <> ExpectedIdNumber then
+                    Error('The ERP could not confirm the saved next-of-kin ID number.');
+            end;
             exit('Next of kin updated successfuly');
 
         end;
@@ -1999,111 +2078,106 @@ Codeunit 50120 "PORTALIntegration MFS"
 
 
     procedure fnUpdateMemberNominees(
-    MemberNumber: Code[20];
-    NomineeName: Text[100];
-    NomineeAddress: Text[100];
-    NomineeIsBeneficiary: Boolean;
-    NomineeEmail: Text[100];
-    NomineeIdNumber: Text[100];
-    NomineeRelationshipType: Text[100];
-    NomineeDOB: Text[100];
-    NomineeAllocation: Decimal;
-    NomineeGuardian: Text[100];
-    NomineeTelephone: Text[100]
-): Text
+        MemberNumber: Code[20];
+        NomineeName: Text[100];
+        NomineeAddress: Text[100];
+        NomineeIsBeneficiary: Boolean;
+        NomineeEmail: Text[100];
+        NomineeIdNumber: Text[100];
+        NomineeRelationshipType: Text[100];
+        NomineeDOB: Text[100];
+        NomineeAllocation: Decimal;
+        NomineeGuardian: Text[100];
+        NomineeTelephone: Text[100];
+        NomineeIsGuardian: Boolean
+    ): Text
     var
-        objNominees: Record "Members Nominee";
+        Nominee: Record "Members Nominee";
+        Guardian: Record "Members Nominee";
+        Beneficiary: Record "Members Nominee";
+        BirthDate: Date;
+        AdultCutoff: Date;
+        IsNew: Boolean;
     begin
+        if (NomineeName = '') or (NomineeRelationshipType = '') then
+            exit('Name and relationship are required.');
+        if NomineeIsGuardian and NomineeIsBeneficiary then
+            exit('Save the guardian and beneficiary as separate records.');
+        if not NomineeIsGuardian and ((NomineeAllocation < 1) or (NomineeAllocation > 100)) then
+            exit('Enter an allocation between 1% and 100%.');
+        if NomineeDOB <> '' then
+            if not Evaluate(BirthDate, NomineeDOB, 9) then
+                if not Evaluate(BirthDate, NomineeDOB) then
+                    exit('Enter a valid date of birth.');
+        if NomineeIsBeneficiary and ((BirthDate = 0D) or (BirthDate > Today())) then
+            exit('Enter a valid date of birth for the beneficiary.');
 
+        AdultCutoff := CalcDate('<-18Y>', Today());
+        Nominee.LockTable();
+        Nominee.SetRange("Account No", MemberNumber);
+        Nominee.SetRange(Name, NomineeName);
+        IsNew := not Nominee.FindFirst();
 
-        if NomineeRelationshipType = '' then
-            exit('Relationship type is required');
-
-        if NomineeAllocation < 1 then
-            exit('Nominee Has to have allocation');
-
-
-        objNominees.SetRange("Account No", MemberNumber);
-        objNominees.SetRange(Name, NomineeName);
-
-
-        if not objNominees.FindFirst() then begin
-
-
-            objNominees.Init();
-            objNominees."Account No" := MemberNumber;
-            objNominees.Name := NomineeName;
-
-
-            objNominees.Beneficiary := NomineeIsBeneficiary;
-            objNominees.Relationship := NomineeRelationshipType;
-
-            objNominees."%Allocation" := NomineeAllocation;
-
-
-            if NomineeName <> '' then
-                objNominees.Name := NomineeName;
-
-            if NomineeTelephone <> '' then
-                objNominees.Telephone := NomineeTelephone;
-
-            if NomineeGuardian <> '' then
-                objNominees.Guardian := NomineeGuardian;
-
-            if NomineeAddress <> '' then
-                objNominees.Address := NomineeAddress;
-
-            if NomineeEmail <> '' then
-                objNominees.Email := NomineeEmail;
-
-            if NomineeDOB <> '' then
-                Evaluate(objNominees."Date of Birth", NomineeDOB);
-
-
-
-            objNominees.Insert(true);
-
-            exit('Nominee added successfuly');
-
-
-        end else begin
-
-            objNominees.Beneficiary := NomineeIsBeneficiary;
-            objNominees.Relationship := NomineeRelationshipType;
-
-            objNominees."%Allocation" := NomineeAllocation;
-
-
-            if NomineeName <> '' then
-                objNominees.Name := NomineeName;
-
-            if NomineeTelephone <> '' then
-                objNominees.Telephone := NomineeTelephone;
-
-            if NomineeGuardian <> '' then
-                objNominees.Guardian := NomineeGuardian;
-
-            if NomineeAddress <> '' then
-                objNominees.Address := NomineeAddress;
-
-            if NomineeEmail <> '' then
-                objNominees.Email := NomineeEmail;
-
-            if NomineeDOB <> '' then
-                Evaluate(objNominees."Date of Birth", NomineeDOB);
-
-
-
-            objNominees.Modify(true);
-
-            exit('Nominee modified successfuly');
-
-
+        Guardian.SetRange("Account No", MemberNumber);
+        Guardian.SetRange("Next Of Kin Type", Guardian."Next Of Kin Type"::Guardian);
+        Guardian.SetFilter(Name, '<>%1', NomineeName);
+        if Guardian.IsEmpty() then begin
+            if NomineeIsBeneficiary and (BirthDate > AdultCutoff) then
+                exit('Add a separate Guardian record before saving a beneficiary under 18.');
+            if not IsNew and not NomineeIsGuardian and
+               (Nominee."Next Of Kin Type" = Nominee."Next Of Kin Type"::Guardian)
+            then begin
+                Beneficiary.SetRange("Account No", MemberNumber);
+                Beneficiary.SetFilter(Name, '<>%1', NomineeName);
+                Beneficiary.SetFilter("Date of Birth", '>%1', AdultCutoff);
+                if Beneficiary.FindSet() then
+                    repeat
+                        if Beneficiary.Beneficiary or
+                           (Beneficiary."Next Of Kin Type" = Beneficiary."Next Of Kin Type"::Beneficiary)
+                        then
+                            exit('Add another Guardian before changing this record type.');
+                    until Beneficiary.Next() = 0;
+            end;
         end;
 
+        if IsNew then begin
+            Nominee.Init();
+            Nominee."Account No" := MemberNumber;
+            Nominee.Name := NomineeName;
+        end;
+        Nominee.Beneficiary := NomineeIsBeneficiary;
+        Nominee.Relationship := NomineeRelationshipType;
+        Nominee."%Allocation" := NomineeAllocation;
+        if NomineeIsGuardian then begin
+            Nominee."Next Of Kin Type" := Nominee."Next Of Kin Type"::Guardian;
+            Nominee."%Allocation" := 0;
+        end else
+            if NomineeIsBeneficiary then
+                Nominee."Next Of Kin Type" := Nominee."Next Of Kin Type"::Beneficiary
+            else
+                if Nominee."Next Of Kin Type" <> Nominee."Next Of Kin Type"::Dependants then
+                    Nominee."Next Of Kin Type" := Nominee."Next Of Kin Type"::" ";
 
+        if NomineeTelephone <> '' then
+            Nominee.Telephone := NomineeTelephone;
+        if NomineeIdNumber <> '' then
+            Nominee."ID No." := NomineeIdNumber;
+        if NomineeGuardian <> '' then
+            Nominee.Guardian := NomineeGuardian;
+        if NomineeAddress <> '' then
+            Nominee.Address := NomineeAddress;
+        if NomineeEmail <> '' then
+            Nominee.Email := NomineeEmail;
+        if BirthDate <> 0D then
+            Nominee."Date of Birth" := BirthDate;
+
+        if IsNew then begin
+            Nominee.Insert(true);
+            exit('Nominee added successfuly');
+        end;
+        Nominee.Modify(true);
+        exit('Nominee modified successfuly');
     end;
-
 
     procedure fnDeleteMemberNominee(MemberNumber: Code[20]; Email: Text[30]): Text
 
@@ -2289,7 +2363,6 @@ Codeunit 50120 "PORTALIntegration MFS"
 
             ObjLoanApplications.Init();
 
-
             ObjLoanApplications."Application Date" := Today;
             ObjLoanApplications."Id No" := objMember."ID No.";
             ObjLoanApplications."BOSA No" := objMember."No.";
@@ -2366,9 +2439,13 @@ Codeunit 50120 "PORTALIntegration MFS"
         existingloanamount: decimal;
         loansregister: record "Loans Register";
         RequestedGuarantorsCount: Integer;
+        GuarantorRequest: Record "Online Loan Guarantors";
+        SelfGuarantee: Record "Online Loan Guarantors";
+        OtherGuarantee: Record "Online Loan Guarantors";
     begin
         if objMember.Get(memberNumber) then begin
             ObjLoanApplications.Reset;
+            ObjLoanApplications.LockTable();
             ObjLoanApplications.SetRange("Application No", loanNumber);
             ObjLoanApplications.SetRange("BOSA No", memberNumber);
 
@@ -2388,7 +2465,10 @@ Codeunit 50120 "PORTALIntegration MFS"
                     exit('Failed, ' + ValidationMessage);
                 end;
 
-                if ObjLoanApplications."Guarantorship Requested" and (ObjLoanApplications."Min No. Of Guarantors" > 0) then begin
+                if ObjLoanApplications."Guarantorship Requested" and
+                   (ObjLoanApplications."Min No. Of Guarantors" > 0) and
+                   not HasFullSelfGuarantee(ObjLoanApplications, false)
+                then begin
                     OnlineLoanGuarantors.Reset();
                     OnlineLoanGuarantors.SetRange("Loan Application No", loanNumber);
                     OnlineLoanGuarantors.SetFilter(Approved, '<>%1', OnlineLoanGuarantors.Approved::Rejected);
@@ -2400,6 +2480,46 @@ Codeunit 50120 "PORTALIntegration MFS"
                                 'Failed. This loan requires at least %1 guarantor(s). Only %2 have been requested so far. Please request %3 more guarantor(s) before submitting.',
                                 ObjLoanApplications."Min No. Of Guarantors", RequestedGuarantorsCount, ObjLoanApplications."Min No. Of Guarantors" - RequestedGuarantorsCount);
                         exit(response);
+                    end;
+                end;
+
+                GuarantorRequest.SetRange("Loan Application No", loanNumber);
+                GuarantorRequest.SetRange("Self Guarantee", true);
+                GuarantorRequest.SetFilter(Approved, '<>%1', GuarantorRequest.Approved::Rejected);
+                if GuarantorRequest.FindFirst() then
+                    if GuarantorRequest.Amount < ObjLoanApplications."Loan Amount" then begin
+                        GuarantorRequest.SetRange("Self Guarantee", false);
+                        if GuarantorRequest.IsEmpty() then
+                            exit(StrSubstNo('Failed. Request additional guarantors to cover the remaining %1 before submitting.',
+                                ObjLoanApplications."Loan Amount" - GuarantorRequest.Amount));
+                    end;
+
+                if HasFullSelfGuarantee(ObjLoanApplications, false) then begin
+                    SelfGuarantee.LockTable();
+                    SelfGuarantee.SetRange("Loan Application No", loanNumber);
+                    SelfGuarantee.SetRange("Member No", memberNumber);
+                    SelfGuarantee.SetRange("Self Guarantee", true);
+                    SelfGuarantee.SetFilter(Approved, '<>%1', SelfGuarantee.Approved::Rejected);
+                    SelfGuarantee.SetFilter(Amount, '>=%1', ObjLoanApplications."Loan Amount");
+                    OtherGuarantee.SetRange("Loan Application No", loanNumber);
+                    OtherGuarantee.SetFilter("Member No", '<>%1', memberNumber);
+                    OtherGuarantee.SetFilter(Approved, '<>%1', OtherGuarantee.Approved::Rejected);
+                    if SelfGuarantee.FindFirst() and OtherGuarantee.IsEmpty() then begin
+                        if (objMember.Status <> objMember.Status::Active) or
+                           (SelfGuarantee.Amount > AvailableSelfGuarantee(objMember, ObjLoanApplications."Loan Amount"))
+                        then
+                            exit('Failed. Your self-guarantee no longer meets the 90% free-deposit limit or the loan amount cap.');
+
+                        SelfGuarantee.Approved := SelfGuarantee.Approved::Approved;
+                        SelfGuarantee."Approval Status" := true;
+                        if SelfGuarantee."Guarantee Date" = 0D then
+                            SelfGuarantee."Guarantee Date" := Today();
+                        SelfGuarantee.Modify();
+
+                        ObjLoanApplications.Submitted := true;
+                        ObjLoanApplications."Application Status" := ObjLoanApplications."Application Status"::Submitted;
+                        exit(SendGuaranteedLoanToBosa(ObjLoanApplications,
+                            'New fully self-guaranteed loan application submitted: '));
                     end;
                 end;
 
@@ -2750,12 +2870,39 @@ Codeunit 50120 "PORTALIntegration MFS"
     LoanNumber: Code[20];
     var Response: Text
 ): Boolean
+    begin
+        exit(RequestGuarantorshipWithAmount(BosaNo, LoanNumber, 0, Response));
+    end;
+
+    procedure FnRequestSelfGuarantee(
+        BosaNo: Code[30];
+        LoanNumber: Code[20];
+        Amount: Decimal;
+        var Response: Text
+    ): Boolean
+    begin
+        if (Amount <= 0) or (Amount <> Round(Amount, 0.01)) then begin
+            Response := 'Enter a positive amount with up to two decimal places.';
+            exit(false);
+        end;
+        exit(RequestGuarantorshipWithAmount(BosaNo, LoanNumber, Amount, Response));
+    end;
+
+    local procedure RequestGuarantorshipWithAmount(
+        BosaNo: Code[30];
+        LoanNumber: Code[20];
+        RequestedSelfAmount: Decimal;
+        var Response: Text
+    ): Boolean
     var
         ValidationMessage: Text;
         RemainingGuarantors: Integer;
+        IsSelfGuarantee: Boolean;
+        SelfGuaranteeAmount: Decimal;
     begin
         Response := '';
         ObjLoanApplications.Reset;
+        ObjLoanApplications.LockTable();
         ObjLoanApplications.SetRange("Application No", LoanNumber);
 
         if not ObjLoanApplications.Find('-') then begin
@@ -2779,11 +2926,29 @@ Codeunit 50120 "PORTALIntegration MFS"
             exit(false);
         end;
 
-        if BosaNo = ObjLoanApplications."BOSA No" then begin
-            Response := 'Failed. Applicant cannot be a guarantor for their own loan.';
+        IsSelfGuarantee := BosaNo = ObjLoanApplications."BOSA No";
+        if IsSelfGuarantee and (RequestedSelfAmount = 0) then begin
+            Response := 'Use the Self-guarantee tab to enter the amount you want to commit.';
             exit(false);
         end;
+        if not IsSelfGuarantee and (RequestedSelfAmount <> 0) then begin
+            Response := 'Only the borrower can commit deposits to this loan.';
+            exit(false);
+        end;
+        if IsSelfGuarantee then begin
+            if ObjLoanApplications.Posted or ObjLoanApplications."Sent To Bosa Loans" or
+               (ObjLoanApplications."Application Status" = ObjLoanApplications."Application Status"::Deleted)
+            then begin
+                Response := 'Failed. This loan application is no longer open for self-guarantee.';
+                exit(false);
+            end;
+            if not AllowsSelfGuarantee(ObjLoanApplications."Loan Type") then begin
+                Response := 'Failed. This loan product does not allow self-guarantee.';
+                exit(false);
+            end;
+        end;
 
+        OnlineLoanGuarantors.LockTable();
         OnlineLoanGuarantors.Reset;
         OnlineLoanGuarantors.SetRange("Loan Application No", LoanNumber);
         OnlineLoanGuarantors.SetRange("Member No", BosaNo);
@@ -2808,6 +2973,21 @@ Codeunit 50120 "PORTALIntegration MFS"
             exit(false);
         end;
 
+        if IsSelfGuarantee then begin
+            SelfGuaranteeAmount := AvailableSelfGuarantee(objMember, ObjLoanApplications."Loan Amount");
+            if SelfGuaranteeAmount <= 0 then begin
+                Response := 'Failed. You have no available deposits to guarantee this loan.';
+                exit(false);
+            end;
+            if RequestedSelfAmount > SelfGuaranteeAmount then begin
+                Response := StrSubstNo(
+                    'Amount exceeds the permitted self-guarantee limit of %1. You can use up to 90% of your free deposits, capped at the loan amount.',
+                    SelfGuaranteeAmount);
+                exit(false);
+            end;
+            SelfGuaranteeAmount := RequestedSelfAmount;
+        end;
+
         OnlineLoanGuarantors.Init;
         OnlineLoanGuarantors."Entry No" := NewApplicationNumber;
         OnlineLoanGuarantors."Loan Application No" := LoanNumber;
@@ -2819,9 +2999,16 @@ Codeunit 50120 "PORTALIntegration MFS"
         OnlineLoanGuarantors.ApplicantNo := ObjLoanApplications."BOSA No";
         OnlineLoanGuarantors.ApplicantName := ObjLoanApplications."Member Names";
         OnlineLoanGuarantors."Applicant Mobile" := ObjLoanApplications.Telephone;
-        OnlineLoanGuarantors.Approved := OnlineLoanGuarantors.Approved::Pending;
-        OnlineLoanGuarantors."Approval Status" := false;
+        if IsSelfGuarantee then begin
+            OnlineLoanGuarantors.Approved := OnlineLoanGuarantors.Approved::Approved;
+            OnlineLoanGuarantors."Guarantee Date" := Today();
+        end else
+            OnlineLoanGuarantors.Approved := OnlineLoanGuarantors.Approved::Pending;
+        OnlineLoanGuarantors."Approval Status" := IsSelfGuarantee;
+        OnlineLoanGuarantors."Self Guarantee" := IsSelfGuarantee;
+        OnlineLoanGuarantors.Amount := SelfGuaranteeAmount;
         OnlineLoanGuarantors.Insert(true);
+        AllocatePendingGuarantees(ObjLoanApplications);
 
         ObjLoanApplications."Guarantorship Requested" := true;
         ObjLoanApplications.Modify(true);
@@ -2831,27 +3018,175 @@ Codeunit 50120 "PORTALIntegration MFS"
         OnlineLoanGuarantors.SetFilter(Approved, '<>%1', OnlineLoanGuarantors.Approved::Rejected);
         RemainingGuarantors := ObjLoanApplications."Min No. Of Guarantors" - OnlineLoanGuarantors.Count();
 
-        if RemainingGuarantors > 0 then
-            Response := StrSubstNo('Success. Guarantorship request submitted successfully. %1 more guarantor(s) needed to meet the minimum of %2.', RemainingGuarantors, ObjLoanApplications."Min No. Of Guarantors")
+        if HasFullSelfGuarantee(ObjLoanApplications, false) then
+            Response := 'Success. Self-guarantee covers the full loan amount. No additional guarantors are required.'
         else
-            Response := 'Success. Guarantorship request submitted successfully. Minimum guarantors reached.';
+            if RemainingGuarantors > 0 then
+                Response := StrSubstNo('Success. Guarantorship request submitted successfully. %1 more guarantor(s) needed to meet the minimum of %2.', RemainingGuarantors, ObjLoanApplications."Min No. Of Guarantors")
+            else
+                Response := 'Success. Guarantorship request submitted successfully. Minimum guarantors reached.';
+
+        if IsSelfGuarantee and (SelfGuaranteeAmount < ObjLoanApplications."Loan Amount") then
+            Response += StrSubstNo(' Request additional guarantors to cover the remaining %1.',
+                ObjLoanApplications."Loan Amount" - SelfGuaranteeAmount);
 
         exit(true);
     end;
 
+    local procedure AllocatePendingGuarantees(Application: Record "Online Loan Application")
+    var
+        Guarantee: Record "Online Loan Guarantors";
+        Shares: Dictionary of [Code[20], Decimal];
+        MemberNo: Code[20];
+        Share: Decimal;
+    begin
+        CalculatePendingGuarantees(Application, Shares);
+        foreach MemberNo in Shares.Keys() do
+            if Guarantee.Get(Application."Application No", MemberNo) then begin
+                Shares.Get(MemberNo, Share);
+                if Guarantee.Amount <> Share then begin
+                    Guarantee.Amount := Share;
+                    Guarantee.Modify();
+                end;
+            end;
+    end;
+
+    local procedure CalculatePendingGuarantees(Application: Record "Online Loan Application"; var Shares: Dictionary of [Code[20], Decimal])
+    var
+        Guarantee: Record "Online Loan Guarantors";
+        FixedCount: Integer;
+        PendingCount: Integer;
+        ShareCount: Integer;
+        ShareIndex: Integer;
+        FixedCover: Decimal;
+        RemainingCover: Decimal;
+        BaseShare: Decimal;
+        ExtraCents: Integer;
+        Share: Decimal;
+    begin
+        Guarantee.SetRange("Loan Application No", Application."Application No");
+        Guarantee.SetFilter(Approved, '<>%1', Guarantee.Approved::Rejected);
+        if Guarantee.FindSet() then
+            repeat
+                if Guarantee."Self Guarantee" or (Guarantee.Approved = Guarantee.Approved::Approved) then begin
+                    FixedCount += 1;
+                    FixedCover += Guarantee.Amount;
+                end;
+            until Guarantee.Next() = 0;
+
+        Guarantee.SetRange(Approved, Guarantee.Approved::Pending);
+        Guarantee.SetRange("Self Guarantee", false);
+        PendingCount := Guarantee.Count();
+        if PendingCount = 0 then
+            exit;
+
+        ShareCount := Application."Min No. Of Guarantors" - FixedCount;
+        if PendingCount > ShareCount then
+            ShareCount := PendingCount;
+
+        RemainingCover := Round(Application."Loan Amount" - FixedCover, 0.01);
+        if RemainingCover < 0 then
+            RemainingCover := 0;
+        BaseShare := Round(RemainingCover / ShareCount, 0.01, '<');
+        ExtraCents := (RemainingCover - BaseShare * ShareCount) * 100;
+
+        if Guarantee.FindSet() then
+            repeat
+                ShareIndex += 1;
+                Share := BaseShare;
+                if ShareIndex <= ExtraCents then
+                    Share += 0.01;
+                Shares.Add(Guarantee."Member No", Share);
+            until Guarantee.Next() = 0;
+    end;
+
+    procedure GetSelfGuaranteeLimit(MemberNo: Code[20]; LoanNumber: Code[20]): Decimal
+    var
+        Application: Record "Online Loan Application";
+        Member: Record Customer;
+        Limit: Decimal;
+    begin
+        if not CanRequestLoanGuarantor(MemberNo, LoanNumber) then
+            exit(-1);
+        Application.SetRange("Application No", LoanNumber);
+        Application.SetRange("BOSA No", MemberNo);
+        if not Application.FindFirst() then
+            exit(-1);
+        if not AllowsSelfGuarantee(Application."Loan Type") then
+            exit(-1);
+        if not Member.Get(MemberNo) then
+            exit(-1);
+        if Member.Status <> Member.Status::Active then
+            exit(-1);
+        Limit := AvailableSelfGuarantee(Member, Application."Loan Amount");
+        if Limit < 0 then
+            exit(0);
+        exit(Limit);
+    end;
+
+    procedure AllowsSelfGuarantee(LoanType: Code[30]): Boolean
+    var
+        Product: Record "Loan Products Setup";
+    begin
+        if not Product.Get(LoanType) then
+            exit(false);
+        exit(Product."Self Guarantee");
+    end;
+
+    procedure CanRequestLoanGuarantor(MemberNo: Code[20]; LoanNo: Code[20]): Boolean
+    var
+        Application: Record "Online Loan Application";
+    begin
+        if (MemberNo = '') or (LoanNo = '') then
+            exit(false);
+        Application.SetRange("Application No", LoanNo);
+        Application.SetRange("BOSA No", MemberNo);
+        Application.SetRange(Posted, false);
+        Application.SetRange("Sent To Bosa Loans", false);
+        Application.SetFilter("Application Status", '<>%1', Application."Application Status"::Deleted);
+        exit(not Application.IsEmpty());
+    end;
+
+    local procedure AvailableSelfGuarantee(var Member: Record Customer; RequestedAmount: Decimal): Decimal
+    var
+        AvailableDeposits: Decimal;
+    begin
+        AvailableDeposits := Round(GetFreeGuaranteeDeposits(Member) * 0.90, 0.01, '<');
+        if AvailableDeposits < RequestedAmount then
+            exit(AvailableDeposits);
+        exit(RequestedAmount);
+    end;
+
+    local procedure GetFreeGuaranteeDeposits(var Member: Record Customer): Decimal
+    var
+        Factory: Codeunit "Swizzsoft Factory.";
+    begin
+        Member.CalcFields("Current Shares");
+        exit(Member."Current Shares" - Factory.CalculateMemberGuaranteeLiability(Member."No."));
+    end;
 
     procedure ApproveGuarantorship(MemberNo: Text; LoanNo: Code[20]; ApprovedStatus: Integer) response: text;
+    begin
+        exit(ProcessGuarantorshipApproval(MemberNo, LoanNo, ApprovedStatus, 0));
+    end;
+
+    procedure ApproveGuarantorshipWithAmount(MemberNo: Text; LoanNo: Code[20]; Amount: Decimal): Text
+    begin
+        if Amount <= 0 then
+            exit('Failed. Enter a positive guarantee amount.');
+        exit(ProcessGuarantorshipApproval(MemberNo, LoanNo, 0, Amount));
+    end;
+
+    local procedure ProcessGuarantorshipApproval(MemberNo: Text; LoanNo: Code[20]; ApprovedStatus: Integer; Amount: Decimal) response: Text
     var
         LoanApplicant: Record Customer;
         LoanApplication: Record "Online Loan Application";
         objMember: Record Customer;
         AllApproved: Boolean;
-        localSMS: Text;
-        notificationMessage: Text[250];
-        ObjOnlineLoandToOffset: Record "Online Loan Offset Details";
-        ObjLoansToOffset: Record "Loan Offset Details";
         TotalRequested: Integer;
         TotalApproved: Integer;
+        HasSelfGuarantee: Boolean;
+        UncoveredAmount: Decimal;
     begin
 
         if (MemberNo = '') or (LoanNo = '') then begin
@@ -2859,9 +3194,13 @@ Codeunit 50120 "PORTALIntegration MFS"
             exit;
         end;
 
+        if (ApprovedStatus <> 0) and (ApprovedStatus <> 1) then
+            exit('Failed. Invalid guarantorship decision.');
+
         response := 'Failed, Please try again Later';
 
         ObjLoanApplications.Reset();
+        ObjLoanApplications.LockTable();
         ObjLoanApplications.SetRange("Application No", LoanNo);
         if not ObjLoanApplications.FindFirst() then begin
             response := 'Failed, Loan application not found';
@@ -2870,6 +3209,9 @@ Codeunit 50120 "PORTALIntegration MFS"
 
         if InstantLoanBlockMgt.IsBlocked(ObjLoanApplications."BOSA No", ObjLoanApplications."Loan Type") then
             exit(InstantLoanBlockMgt.UnavailableMessage());
+
+        if ObjLoanApplications.Posted or ObjLoanApplications."Sent To Bosa Loans" then
+            exit('This loan application has already been submitted.');
 
         OnlineLoanGuarantors.Reset;
         OnlineLoanGuarantors.SetRange("Loan Application No", LoanNo);
@@ -2880,9 +3222,16 @@ Codeunit 50120 "PORTALIntegration MFS"
                 Error('Member record not found.');
 
             if ApprovedStatus = 0 then begin
+                if (Amount > 0) and not OnlineLoanGuarantors."Self Guarantee" then begin
+                    if (objMember.Status <> objMember.Status::Active) or (Amount > GetFreeGuaranteeDeposits(objMember)) then
+                        exit('Failed. The guarantor does not have enough available deposits for this amount.');
+                    OnlineLoanGuarantors.Amount := Amount;
+                end;
                 // Approved
                 OnlineLoanGuarantors.Approved := OnlineLoanGuarantors.Approved::Approved;
                 OnlineLoanGuarantors."Approval Status" := true;
+                if OnlineLoanGuarantors."Guarantee Date" = 0D then
+                    OnlineLoanGuarantors."Guarantee Date" := Today();
                 OnlineLoanGuarantors.Modify;
 
                 response := 'true';
@@ -2893,6 +3242,7 @@ Codeunit 50120 "PORTALIntegration MFS"
                 // Rejected
                 OnlineLoanGuarantors.Approved := OnlineLoanGuarantors.Approved::Rejected;
                 OnlineLoanGuarantors."Approval Status" := false;
+                Clear(OnlineLoanGuarantors."Guarantee Date");
                 OnlineLoanGuarantors.Modify;
 
                 response := 'false';
@@ -2904,119 +3254,136 @@ Codeunit 50120 "PORTALIntegration MFS"
 
             OnlineLoanGuarantors.Reset();
             OnlineLoanGuarantors.SetRange("Loan Application No", LoanNo);
+            AllocatePendingGuarantees(ObjLoanApplications);
+            UncoveredAmount := GetUncoveredSelfGuaranteedAmount(ObjLoanApplications, HasSelfGuarantee);
+            if HasSelfGuarantee then begin
+                if UncoveredAmount > 0 then
+                    exit(StrSubstNo('%1 recorded. Request additional guarantors to cover the remaining %2 before the loan can be sent for appraisal.', SelectStr(ApprovedStatus + 1, 'Approval,Rejection'), UncoveredAmount));
+                OnlineLoanGuarantors.SetFilter(Approved, '<>%1', OnlineLoanGuarantors.Approved::Rejected);
+            end;
             TotalRequested := OnlineLoanGuarantors.Count();
 
             OnlineLoanGuarantors.SetRange("Approval Status", true);
             TotalApproved := OnlineLoanGuarantors.Count();
 
-            AllApproved := (TotalApproved = TotalRequested) and (TotalApproved >= ObjLoanApplications."Min No. Of Guarantors");
+            AllApproved := (TotalApproved = TotalRequested) and
+                ((TotalApproved >= ObjLoanApplications."Min No. Of Guarantors") or
+                 HasFullSelfGuarantee(ObjLoanApplications, true));
 
-            if AllApproved then begin
+            if AllApproved then
+                exit(SendGuaranteedLoanToBosa(ObjLoanApplications, 'New loan application approved by all guarantors: '));
+        end;
+    end;
 
-                ObjLoanApplications.Reset;
-                ObjLoanApplications.SetRange("Application No", LoanNo);
+    local procedure SendGuaranteedLoanToBosa(var Application: Record "Online Loan Application"; NotificationPrefix: Text): Text
+    var
+        BosaLoan: Record "Loans Register";
+        OnlineOffset: Record "Online Loan Offset Details";
+        LoanOffset: Record "Loan Offset Details";
+        ApprovedGuarantee: Record "Online Loan Guarantors";
+        MessageText: Text;
+    begin
+        BosaLoan.Init();
+        BosaLoan."BOSA No" := Application."BOSA No";
+        BosaLoan.Source := BosaLoan.Source::BOSA;
+        SalesSetup.Get();
+        BosaLoan."Loan  No." := NoSeriesMgt.GetNextNo(SalesSetup."BOSA Loans Nos", Today, true);
+        BosaLoan."Client Code" := Application."Membership No";
+        BosaLoan."Client Name" := Application."Member Names";
+        BosaLoan."Application Date" := Application."Application Date";
+        BosaLoan."Loan Product Type" := Application."Loan Type";
+        BosaLoan."Loan Product Type Name" := Application."Loan Product Type Name";
+        BosaLoan."Mode of Disbursement" := Application."Mode of Disbursement";
+        BosaLoan."Recovery Mode" := Application."Recovery Mode";
+        BosaLoan."Loan Status" := BosaLoan."Loan Status"::Application;
+        BosaLoan.Installments := Application."Repayment Period";
+        BosaLoan."Requested Amount" := Application."Loan Amount";
+        BosaLoan."Bank Name" := Format(Application."Customer Bank");
+        if not BosaLoan.Insert() then
+            Error('Could not create the BOSA loan application.');
 
-                if ObjLoanApplications.FindFirst() then begin
+        BosaLoan.Validate("Client Code");
+        BosaLoan.Validate("BOSA No");
+        BosaLoan.Validate("Loan Product Type");
+        BosaLoan.Validate("Requested Amount");
 
-                    ObjLoansregister.Reset();
-                    ObjLoansregister.Init();
+        Application."Sent To Bosa Loans" := true;
+        Application.Posted := true;
+        Application.Modify(true);
 
-                    ObjLoansregister."BOSA No" := ObjLoanApplications."BOSA No";
-                    ObjLoansregister.Source := ObjLoansregister.Source::BOSA;
-                    SalesSetup.Get();
-                    ObjLoansregister."Loan  No." := NoSeriesMgt.GetNextNo(SalesSetup."BOSA Loans Nos", Today, true);
-
-                    ObjLoansregister."Client Code" := ObjLoanApplications."Membership No";
-                    ObjLoansregister."Client Name" := ObjLoanApplications."Member Names";
-
-                    ObjLoansregister."Application Date" := ObjLoanApplications."Application Date";
-                    ObjLoansregister."Loan Product Type" := ObjLoanApplications."Loan Type";
-                    ObjLoansregister."Loan Product Type Name" := ObjLoanApplications."Loan Product Type Name";
-                    ObjLoansregister."Mode of Disbursement" := ObjLoanApplications."Mode of Disbursement";
-                    ObjLoansregister."Recovery Mode" := ObjLoanApplications."Recovery Mode";
-                    ObjLoansregister."Loan Status" := ObjLoansregister."Loan Status"::Application;
-
-                    ObjLoansregister.Installments := ObjLoanApplications."Repayment Period";
-                    ObjLoansregister."Requested Amount" := ObjLoanApplications."Loan Amount";
-
-                    ObjLoansregister."Bank Name" := Format(objLoanApplications."Customer Bank");
-                    //ObjLoansregister."Bank code" := Format(ObjLoanApplications."Customer Bank");
-
-
-                    if ObjLoansregister.Insert() then begin
-                        ObjLoanApplications."Sent To Bosa Loans" := true;
-
-                        ObjLoansregister.Validate("Client Code");
-                        ObjLoansregister.Validate(ObjLoansregister."BOSA No");
-                        ObjLoansregister.Validate(ObjLoansregister."Loan Product Type");
-                        ObjLoansregister.Validate("Requested Amount");
-
-
-                        ObjLoanApplications.Posted := true;
-                        ObjLoanApplications.Modify(true);
-
-                        ObjOnlineLoandToOffset.SetRange("Loan No.", LoanNo);
-                        //ObjOnlineLoandToOffset.SetRange("Client Code", memberNo);
-                        ObjOnlineLoandToOffset.SetRange(Submitted, false);
-
-
-                        If ObjOnlineLoandToOffset.FindSet() then begin
-                            repeat
-
-                                ObjLoansToOffset.SetRange("Loan No.", objLoanRegister."Loan  No.");
-                                ObjLoansToOffset.SetRange("Loan Top Up", ObjOnlineLoandToOffset."Loan Top Up");
-
-                                if not ObjLoansToOffset.FindFirst() then begin
-                                    ObjLoansToOffset.INIT();
-                                    ObjLoansToOffset."Loan No." := ObjLoansregister."Loan  No.";
-
-
-                                    ObjLoansToOffset."Loan Top Up" := ObjOnlineLoandToOffset."Loan Top Up";
-
-                                    ObjLoansToOffset.Validate("Client Code", ObjOnlineLoandToOffset."Client Code");
-                                    ObjLoansToOffset.Validate("Principle Top Up", ObjOnlineLoandToOffset."Principle Top Up");
-
-
-                                    ObjLoansToOffset.Validate(Commision);
-
-                                    if ObjLoansToOffset.Insert(TRUE) then begin
-                                        ObjOnlineLoandToOffset.Submitted := true;
-                                        ObjOnlineLoandToOffset.Modify(); // Don't forget to save the change
-                                    end;
-                                end;
-                            until ObjOnlineLoandToOffset.next() = 0;
-                        end;
-
-                        //Submitt Guarantors
-                        OnlineLoanGuarantors.Reset();
-                        OnlineLoanGuarantors.SetRange(OnlineLoanGuarantors."Loan Application No", LoanNo);
-                        OnlineLoanGuarantors.SetRange(OnlineLoanGuarantors.Approved, OnlineLoanGuarantors.Approved::Approved);
-                        if OnlineLoanGuarantors.Find('-') then begin
-                            repeat
-                                submitGuarantors(OnlineLoanGuarantors."Member No", LoanNo, ObjLoansregister."Loan  No.");
-                            until OnlineLoanGuarantors.Next = 0;
-                        end;
-
-                        localsms := 'Dear Member you have submitted ' + Format(ObjLoanApplications."Loan Product Type Name") + ' Application No.' + ObjLoanApplications."Application No" + '. Your loan application is awaiting appraisal by Credit Team.';
-
-                        if (OnlineLoanGuarantors."Applicant Mobile" <> '') then
-                            FnSMSMessage(OnlineLoanGuarantors.ApplicantNo, OnlineLoanGuarantors."Applicant Mobile", localSMS);
-                        response := 'Success, your loan has been submitted to Credit for Appraisal';
-
-                        // Notify sacco staff about loan when guarantors approves
-                        notificationMessage := 'New loan application Approved by all guarantors: ' +
-                                            'Loan No: ' + Format(ObjLoanApplications."Application No") +
-                                            ', Member: ' + ObjLoanApplications."Member Names" +
-                                            ', Type: ' + ObjLoanApplications."Loan Product Type Name" +
-                                            ', Amount: KSh ' + Format(ObjLoanApplications."Loan Amount") +
-                                            '. Requires appraisal.';
-                        NotifyUsers(notificationMessage);
-                    end else begin
-                        response := 'Failed, Please contact the office for assistance';
+        OnlineOffset.SetRange("Loan No.", Application."Application No");
+        OnlineOffset.SetRange(Submitted, false);
+        if OnlineOffset.FindSet() then
+            repeat
+                if not LoanOffset.Get(BosaLoan."Loan  No.", OnlineOffset."Client Code", OnlineOffset."Loan Top Up") then begin
+                    LoanOffset.Init();
+                    LoanOffset."Loan No." := BosaLoan."Loan  No.";
+                    LoanOffset."Loan Top Up" := OnlineOffset."Loan Top Up";
+                    LoanOffset.Validate("Client Code", OnlineOffset."Client Code");
+                    LoanOffset.Validate("Principle Top Up", OnlineOffset."Principle Top Up");
+                    LoanOffset.Validate(Commision);
+                    if LoanOffset.Insert(true) then begin
+                        OnlineOffset.Submitted := true;
+                        OnlineOffset.Modify();
                     end;
                 end;
-            end
+            until OnlineOffset.Next() = 0;
+
+        ApprovedGuarantee.SetRange("Loan Application No", Application."Application No");
+        ApprovedGuarantee.SetRange(Approved, ApprovedGuarantee.Approved::Approved);
+        if ApprovedGuarantee.FindFirst() then begin
+            submitGuarantors(ApprovedGuarantee."Member No", Application."Application No", BosaLoan."Loan  No.");
+            if ApprovedGuarantee."Applicant Mobile" <> '' then begin
+                MessageText := StrSubstNo(
+                    'Dear Member, you have submitted %1 application %2. Your loan application is awaiting appraisal by the Credit team.',
+                    Application."Loan Product Type Name", Application."Application No");
+                FnSMSMessage(ApprovedGuarantee.ApplicantNo, ApprovedGuarantee."Applicant Mobile", CopyStr(MessageText, 1, 250));
+            end;
         end;
+
+        MessageText := NotificationPrefix + StrSubstNo('Loan No: %1, Member: %2, Type: %3, Amount: KSh %4. Requires appraisal.',
+            Application."Application No", Application."Member Names", Application."Loan Product Type Name", Application."Loan Amount");
+        NotifyUsers(CopyStr(MessageText, 1, 250));
+        exit('Success, your loan has been submitted to Credit for Appraisal');
+    end;
+
+    local procedure HasFullSelfGuarantee(Application: Record "Online Loan Application"; RequireApproval: Boolean): Boolean
+    var
+        Guarantee: Record "Online Loan Guarantors";
+    begin
+        if (Application."Loan Amount" <= 0) or not AllowsSelfGuarantee(Application."Loan Type") then
+            exit(false);
+
+        Guarantee.SetRange("Loan Application No", Application."Application No");
+        Guarantee.SetRange("Member No", Application."BOSA No");
+        Guarantee.SetRange("Self Guarantee", true);
+        Guarantee.SetFilter(Amount, '>=%1', Application."Loan Amount");
+        if RequireApproval then
+            Guarantee.SetRange(Approved, Guarantee.Approved::Approved)
+        else
+            Guarantee.SetFilter(Approved, '<>%1', Guarantee.Approved::Rejected);
+        exit(not Guarantee.IsEmpty());
+    end;
+
+    local procedure GetUncoveredSelfGuaranteedAmount(Application: Record "Online Loan Application"; var HasSelfGuarantee: Boolean): Decimal
+    var
+        Guarantee: Record "Online Loan Guarantors";
+        ApprovedCover: Decimal;
+    begin
+        Guarantee.SetRange("Loan Application No", Application."Application No");
+        Guarantee.SetRange("Self Guarantee", true);
+        HasSelfGuarantee := not Guarantee.IsEmpty();
+        if not HasSelfGuarantee then
+            exit(0);
+
+        Guarantee.SetRange("Self Guarantee");
+        Guarantee.SetRange(Approved, Guarantee.Approved::Approved);
+        Guarantee.SetFilter(Amount, '>0');
+        Guarantee.CalcSums(Amount);
+        ApprovedCover := Guarantee.Amount;
+        if ApprovedCover < Application."Loan Amount" then
+            exit(Application."Loan Amount" - ApprovedCover);
+        exit(0);
     end;
 
 
@@ -3151,31 +3518,50 @@ Codeunit 50120 "PORTALIntegration MFS"
     procedure FnGetGuarantors(LoanNo: Code[20]; memberNumber: Code[20]) responseText: Text
     var
         OnlineLoanGuarantors: Record "Online Loan Guarantors";
+        GuarantorMember: Record Customer;
+        Application: Record "Online Loan Application";
+        Shares: Dictionary of [Code[20], Decimal];
+        DisplayAmount: Decimal;
+        GuarantorId: Text;
+        PersonalEmail: Text;
         guarantorsText: Text;
     begin
+        if Application.Get(LoanNo) then
+            CalculatePendingGuarantees(Application, Shares);
         guarantorsText := '';
         OnlineLoanGuarantors.Reset;
         OnlineLoanGuarantors.SetRange("Loan Application No", LoanNo);
         // OnlineLoanGuarantors.SetRange(OnlineLoanGuarantors.ApplicantNo, memberNumber);
         if OnlineLoanGuarantors.FindFirst then begin
             repeat
+                GuarantorId := OnlineLoanGuarantors."ID No";
+                Clear(PersonalEmail);
+                if GuarantorMember.Get(OnlineLoanGuarantors."Member No") then begin
+                    PersonalEmail := GuarantorMember."E-Mail (Personal)";
+                    if GuarantorMember."ID No." <> '' then
+                        GuarantorId := GuarantorMember."ID No.";
+                end;
+                if not Shares.Get(OnlineLoanGuarantors."Member No", DisplayAmount) then
+                    DisplayAmount := OnlineLoanGuarantors.Amount;
                 if guarantorsText = '' then begin
                     guarantorsText := '{'
                                         + '"AccountNo":"' + FORMAT(OnlineLoanGuarantors."Member No") + '"'
-                                        + ',"AmountGuaranteed":"' + FORMAT(OnlineLoanGuarantors.Amount) + '"'
+                                        + ',"AmountGuaranteed":"' + Format(DisplayAmount, 0, 9) + '"'
+                                        + ',"SelfGuarantee":' + Format(OnlineLoanGuarantors."Self Guarantee", 0, 9)
                                         + ',"GuarantorName":"' + OnlineLoanGuarantors.Names + '"'
-                                        + ',"IdNumber":"' + FORMAT(OnlineLoanGuarantors."ID No") + '"'
-                                        + ',"EmailAddress":"' + FORMAT(OnlineLoanGuarantors."Email Address") + '"'
+                                        + ',"IdNumber":"' + GuarantorId + '"'
+                                        + ',"EmailAddress":"' + PersonalEmail + '"'
                                         + ',"Telephone":"' + FORMAT(OnlineLoanGuarantors.Telephone) + '"'
                                         + ',"ApprovalStatus":"' + FORMAT(OnlineLoanGuarantors."Approval Status") + '"'
                                         + '}';
                 end else begin
                     guarantorsText := guarantorsText + ',{'
                                                             + '"AccountNo":"' + FORMAT(OnlineLoanGuarantors."Member No") + '"'
-                                                            + ',"AmountGuaranteed":"' + FORMAT(OnlineLoanGuarantors.Amount) + '"'
+                                                            + ',"AmountGuaranteed":"' + Format(DisplayAmount, 0, 9) + '"'
+                                                            + ',"SelfGuarantee":' + Format(OnlineLoanGuarantors."Self Guarantee", 0, 9)
                                                             + ',"GuarantorName":"' + OnlineLoanGuarantors.Names + '"'
-                                                            + ',"IdNumber":"' + FORMAT(OnlineLoanGuarantors."ID No") + '"'
-                                                            + ',"EmailAddress":"' + FORMAT(OnlineLoanGuarantors."Email Address") + '"'
+                                                            + ',"IdNumber":"' + GuarantorId + '"'
+                                                            + ',"EmailAddress":"' + PersonalEmail + '"'
                                                             + ',"Telephone":"' + FORMAT(OnlineLoanGuarantors.Telephone) + '"'
                                                             + ',"ApprovalStatus":"' + FORMAT(OnlineLoanGuarantors."Approval Status") + '"'
                                                             + '}';
@@ -3193,6 +3579,9 @@ Codeunit 50120 "PORTALIntegration MFS"
 
     procedure FnGetLoansForGuarantee(Member: Code[40]) responseText: Text
     var
+        Application: Record "Online Loan Application";
+        Shares: Dictionary of [Code[20], Decimal];
+        DisplayAmount: Decimal;
         guarantorsText: Text;
     begin
 
@@ -3204,6 +3593,13 @@ Codeunit 50120 "PORTALIntegration MFS"
             ObjLoanApplications.SetRange("Application No", OnlineLoanGuarantors."Loan Application No");
             if ObjLoanApplications.FindFirst then begin
                 repeat
+                    DisplayAmount := OnlineLoanGuarantors.Amount;
+                    Clear(Shares);
+                    if Application.Get(OnlineLoanGuarantors."Loan Application No") then begin
+                        CalculatePendingGuarantees(Application, Shares);
+                        if not Shares.Get(OnlineLoanGuarantors."Member No", DisplayAmount) then
+                            DisplayAmount := OnlineLoanGuarantors.Amount;
+                    end;
                     if guarantorsText = '' then begin
                         guarantorsText := '{'
                                       + '"LoanApplicationNo":"' + FORMAT(OnlineLoanGuarantors."Loan Application No") + '"'
@@ -3213,7 +3609,7 @@ Codeunit 50120 "PORTALIntegration MFS"
                                       + ',"LoanRequestedAmount":"' + FORMAT(ObjLoanApplications."Loan Amount") + '"'
                                       + ',"ApplicantNo":"' + OnlineLoanGuarantors.ApplicantNo + '"'
                                       + ',"ApplicantName":"' + FORMAT(OnlineLoanGuarantors.ApplicantName) + '"'
-                                      + ',"Amount":"' + FORMAT(OnlineLoanGuarantors."Amount") + '"'
+                                      + ',"Amount":"' + Format(DisplayAmount, 0, 9) + '"'
                                       + ',"EntryNo":"' + FORMAT(OnlineLoanGuarantors."Entry No") + '"'
                                       + '}';
                     end else begin
@@ -3225,7 +3621,7 @@ Codeunit 50120 "PORTALIntegration MFS"
                                            + ',"LoanRequestedAmount":"' + FORMAT(ObjLoanApplications."Loan Amount") + '"'
                                                               + ',"ApplicantNo":"' + OnlineLoanGuarantors.ApplicantNo + '"'
                                                               + ',"ApplicantName":"' + FORMAT(OnlineLoanGuarantors.ApplicantName) + '"'
-                                                              + ',"Amount":"' + FORMAT(OnlineLoanGuarantors."Amount") + '"'
+                                                              + ',"Amount":"' + Format(DisplayAmount, 0, 9) + '"'
                                                               + ',"EntryNo":"' + FORMAT(OnlineLoanGuarantors."Entry No") + '"'
                                                               + '}';
                     end;
@@ -3436,16 +3832,26 @@ Codeunit 50120 "PORTALIntegration MFS"
     procedure removeGuarantorRequest(memberNumber: Code[20]; loanNumber: Code[20]; guarantorNumber: Code[20]) isRemoved: Boolean
     var
         onlineGuarantors: Record "Online Loan Guarantors";
+        Application: Record "Online Loan Application";
     begin
         isRemoved := false;
+        Application.LockTable();
+        Application.SetRange("Application No", loanNumber);
+        Application.SetRange("BOSA No", memberNumber);
+        if not Application.FindFirst() then
+            exit(false);
+
+        onlineGuarantors.LockTable();
         onlineGuarantors.Reset();
         onlineGuarantors.SetRange(onlineGuarantors."Loan Application No", loanNumber);
         onlineGuarantors.SetRange(onlineGuarantors.ApplicantNo, memberNumber);
         onlineGuarantors.SetRange(onlineGuarantors."Member No", guarantorNumber);
         if onlineGuarantors.Find('-') then begin
 
-            if onlineGuarantors.Delete() = true then
+            if onlineGuarantors.Delete() then begin
+                AllocatePendingGuarantees(Application);
                 isRemoved := true;
+            end;
         end;
     end;
 
@@ -3517,39 +3923,69 @@ Codeunit 50120 "PORTALIntegration MFS"
 
     procedure submitGuarantors(memberNumber: Code[20]; onlineLoanApplicationNumber: Code[20]; loanRegisterNumber: Code[20])
     var
+        GuarantorToSubmit: Record "Online Loan Guarantors";
         loanGuarantors: Record "Loans Guarantee Details";
         member: Record Customer;
         ApplicationToSubmit: Record "Online Loan Application";
         RegisterToSubmit: Record "Loans Register";
+        HasSelfGuarantee: Boolean;
+        UncoveredAmount: Decimal;
     begin
         ApplicationToSubmit.SetRange("Application No", onlineLoanApplicationNumber);
         if ApplicationToSubmit.FindFirst() then
             InstantLoanBlockMgt.CheckAvailable(ApplicationToSubmit."BOSA No", ApplicationToSubmit."Loan Type");
         if RegisterToSubmit.Get(loanRegisterNumber) then
             InstantLoanBlockMgt.CheckAvailable(RegisterToSubmit."Client Code", RegisterToSubmit."Loan Product Type");
-        OnlineLoanGuarantors.Reset();
-        OnlineLoanGuarantors.SetRange("Loan Application No", onlineLoanApplicationNumber);
+        GuarantorToSubmit.SetRange("Loan Application No", onlineLoanApplicationNumber);
+        if ApplicationToSubmit."Application No" <> '' then begin
+            UncoveredAmount := GetUncoveredSelfGuaranteedAmount(ApplicationToSubmit, HasSelfGuarantee);
+            if HasSelfGuarantee then begin
+                if UncoveredAmount > 0 then
+                    Error('Additional approved guarantor cover of %1 is required.', UncoveredAmount);
+                GuarantorToSubmit.SetRange(Approved, GuarantorToSubmit.Approved::Approved);
+            end;
+        end;
 
-        if OnlineLoanGuarantors.FindSet() then begin
+        if GuarantorToSubmit.FindSet() then begin
             repeat
                 // Check for duplicates first
                 loanGuarantors.Reset();
                 loanGuarantors.SetRange("Loan No", loanRegisterNumber);
-                loanGuarantors.SetRange("Member No", OnlineLoanGuarantors."Member No");
-                if not loanGuarantors.FindFirst() then begin
+                loanGuarantors.SetRange("Member No", GuarantorToSubmit."Member No");
+                if (not GuarantorToSubmit."Self Guarantee" or
+                    (GuarantorToSubmit.Approved = GuarantorToSubmit.Approved::Approved)) and
+                   not loanGuarantors.FindFirst()
+                then begin
                     loanGuarantors.Init();
                     loanGuarantors."Loan No" := loanRegisterNumber;
-                    loanGuarantors."Account No." := OnlineLoanGuarantors."Member No";
+                    loanGuarantors."Account No." := GuarantorToSubmit."Member No";
 
 
                     //loanGuarantors.Validate("Member No", OnlineLoanGuarantors."Member No");
 
 
-                    loanGuarantors."Member No" := OnlineLoanGuarantors."Member No";
-                    loanGuarantors."Amont Guaranteed" := OnlineLoanGuarantors.Amount;
+                    loanGuarantors."Member No" := GuarantorToSubmit."Member No";
+                    loanGuarantors."Amont Guaranteed" := GuarantorToSubmit.Amount;
+                    loanGuarantors."Original Amount" := GuarantorToSubmit.Amount;
+                    loanGuarantors.Date := GuarantorToSubmit."Guarantee Date";
 
 
-                    member := GetMemberRecord(OnlineLoanGuarantors."Member No");
+                    member := GetMemberRecord(GuarantorToSubmit."Member No");
+                    if GuarantorToSubmit."Self Guarantee" then begin
+                        if (ApplicationToSubmit."BOSA No" <> member."No.") or
+                           (RegisterToSubmit."BOSA No" <> member."No.") or
+                           (ApplicationToSubmit."Loan Type" <> RegisterToSubmit."Loan Product Type")
+                        then
+                            Error('The self-guarantee must be applied to the borrower and loan product on the application.');
+                        if not AllowsSelfGuarantee(ApplicationToSubmit."Loan Type") then
+                            Error('This loan product no longer allows self-guarantee.');
+                        if (member.Status <> member.Status::Active) or (GuarantorToSubmit.Amount <= 0) or
+                           (GuarantorToSubmit.Amount > AvailableSelfGuarantee(member, ApplicationToSubmit."Loan Amount"))
+                        then
+                            Error('The member no longer has enough available deposits for the self-guarantee.');
+
+                        loanGuarantors."Self Guarantee" := true;
+                    end;
 
                     loanGuarantors.Name := member.Name;
                     loanGuarantors.Shares := member."Shares Retained";
@@ -3559,7 +3995,7 @@ Codeunit 50120 "PORTALIntegration MFS"
                     // Do NOT call Validate("Member No") here, since OnValidate already modifies the record
                     loanGuarantors.Insert(true);
                 end;
-            until OnlineLoanGuarantors.Next() = 0;
+            until GuarantorToSubmit.Next() = 0;
         end;
     end;
 

@@ -85,6 +85,11 @@ Page 56032 "Loan Products Setup List"
                 {
                     ApplicationArea = Basic;
                 }
+                field("Self Guarantee"; Rec."Self Guarantee")
+                {
+                    ApplicationArea = Basic;
+                    ToolTip = 'Specifies whether members can use their own free deposits to guarantee this loan product in the member portal.';
+                }
                 field("Min Re-application Period"; Rec."Min Re-application Period")
                 {
                     ApplicationArea = Basic;

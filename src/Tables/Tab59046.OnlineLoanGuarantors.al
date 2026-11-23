@@ -41,6 +41,8 @@ Table 59046 "Online Loan Guarantors"
         field(12; ApplicantName; Code[50]) { Editable = false; }
         field(13; "Applicant Mobile"; Code[30]) { }
         field(14; "Loan Type"; Code[30]) { }
+        field(15; "Self Guarantee"; Boolean) { }
+        field(16; "Guarantee Date"; Date) { }
     }
 
     keys

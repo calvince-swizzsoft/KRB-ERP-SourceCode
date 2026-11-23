@@ -480,6 +480,11 @@ Table 51381 "Loan Products Setup"
 
         }
 
+        field(138; "Self Guarantee"; Boolean)
+        {
+            Caption = 'Self Guarantee';
+            DataClassification = CustomerContent;
+        }
 
     }
 

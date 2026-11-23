@@ -229,7 +229,24 @@ Report 50210 "Loan Defaulters List"
             end;
 
             trigger OnPreDataItem()
+            var
+                PreviousFilterGroup: Integer;
             begin
+                if (IssuedFromDate <> 0D) and (IssuedToDate <> 0D) and (IssuedFromDate > IssuedToDate) then
+                    Error(InvalidIssuedPeriodErr);
+
+                PreviousFilterGroup := Loans.FilterGroup();
+                Loans.FilterGroup(10);
+                Loans.SetRange("Issued Date");
+                if IssuedFromDate <> 0D then begin
+                    if IssuedToDate <> 0D then
+                        Loans.SetRange("Issued Date", IssuedFromDate, IssuedToDate)
+                    else
+                        Loans.SetFilter("Issued Date", '>=%1', IssuedFromDate);
+                end else
+                    if IssuedToDate <> 0D then
+                        Loans.SetFilter("Issued Date", '>%1&<=%2', 0D, IssuedToDate);
+                Loans.FilterGroup(PreviousFilterGroup);
 
                 if LoanProductFilter <> '' then
                     Loans.SetFilter("Loan Product Type", LoanProductFilter);
@@ -289,6 +306,19 @@ Report 50210 "Loan Defaulters List"
             {
                 group(Options)
                 {
+                    field(IssuedFromDate; IssuedFromDate)
+                    {
+                        Caption = 'Issued From Date';
+                        ApplicationArea = All;
+                        ToolTip = 'Specifies the first loan issue date to include. Leave blank for no start date.';
+                    }
+
+                    field(IssuedToDate; IssuedToDate)
+                    {
+                        Caption = 'Issued To Date';
+                        ApplicationArea = All;
+                        ToolTip = 'Specifies the last loan issue date to include. Leave blank for no end date.';
+                    }
 
                     field(ArrearsFilter; ArrearsFilterOption)
                     {
@@ -342,6 +372,9 @@ Report 50210 "Loan Defaulters List"
 
     var
 
+        IssuedFromDate: Date;
+        IssuedToDate: Date;
+        InvalidIssuedPeriodErr: Label 'Issued From Date must be on or before Issued To Date.';
         ArrearsFilterOption: Option "All Arrears","1 - 30 Days","31 - 60 Days","61 - 90 Days","Above 90 Days";
         RPeriod: Decimal;
         BatchL: Code[100];

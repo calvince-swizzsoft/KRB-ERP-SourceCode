@@ -86,12 +86,13 @@ Report 50303 "Member Shares Certificate"
             column(FullName; FullName)
             {
             }
-            column(NumberText; NumberText[1])
+            column(NumberText; ShareCapitalInWords)
             {
             }
 
             trigger OnAfterGetRecord()
             begin
+                Clear(ShareCapitalInWords);
                 MembersReg.Reset;
                 MembersReg.SetRange(MembersReg."No.", "No.");
                 MembersReg.SetAutocalcFields(MembersReg."Current Shares", MembersReg."Share Capital");
@@ -106,12 +107,7 @@ Report 50303 "Member Shares Certificate"
                     TotalCurrectshares := MembersReg."Current Shares";
                     TotalSharecap := MembersReg."Share Capital";
 
-                    //................................................
-                    //Amount into words
-                    CheckReport.InitTextVariable;
-                    CheckReport.FormatNoText(NumberText, TotalSharecap, 'KES');
-                    //................................................
-                    //AmountInWords:='';
+                    ShareCapitalInWords := FormatShareCapitalInWords(TotalSharecap);
                 end;
             end;
 
@@ -245,7 +241,7 @@ Report 50303 "Member Shares Certificate"
         IDnoMember: Code[30];
         FullName: Text[100];
         CheckReport: Report Check;
-        NumberText: array[2] of Text[120];
+        ShareCapitalInWords: Text;
         TotalCurrectshares: Decimal;
         TotalSharecap: Decimal;
         TotalLift: Decimal;
@@ -257,5 +253,40 @@ Report 50303 "Member Shares Certificate"
         NoSeriesMgt: Codeunit NoSeriesManagement;
         StartDate: Date;
         EndDate: Date;
+
+    local procedure FormatShareCapitalInWords(Amount: Decimal): Text
+    var
+        RoundedAmount: Decimal;
+        Shillings: Decimal;
+        Cents: Decimal;
+        AmountInWords: Text;
+    begin
+        RoundedAmount := Round(Amount, 0.01);
+        Shillings := Round(Abs(RoundedAmount), 1, '<');
+        Cents := Round((Abs(RoundedAmount) - Shillings) * 100, 1);
+
+        CheckReport.InitTextVariable();
+        AmountInWords := FormatWholeNumberInWords(Shillings) + ' Kenya shillings';
+        if Cents <> 0 then
+            AmountInWords += ' and ' + FormatWholeNumberInWords(Cents) + ' cents';
+        if RoundedAmount < 0 then
+            AmountInWords := 'minus ' + AmountInWords;
+
+        exit(UpperCase(CopyStr(AmountInWords, 1, 1)) + CopyStr(AmountInWords, 2) + ' only');
+    end;
+
+    local procedure FormatWholeNumberInWords(Amount: Decimal): Text
+    var
+        NumberText: array[2] of Text[120];
+        Words: Text;
+        FractionStart: Integer;
+    begin
+        CheckReport.FormatNoText(NumberText, Amount, '');
+        Words := NumberText[1] + ' ' + NumberText[2];
+        FractionStart := Words.LastIndexOf(' AND ');
+        if FractionStart > 0 then
+            Words := CopyStr(Words, 1, FractionStart - 1);
+        exit(LowerCase(DelChr(Words, '<>', '* ')));
+    end;
 }
 
