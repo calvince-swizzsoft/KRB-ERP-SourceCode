@@ -8,8 +8,9 @@ table 59084 "Instant Loan Block Cue"
         field(2; "Blocked Members"; Integer)
         {
             FieldClass = FlowField;
-            CalcFormula = count("Instant Loan Member Block" where(Blocked = const(true)));
+            CalcFormula = count("Instant Loan Member Block" where(Blocked = const(true), "Expires On" = field("Expiration Filter")));
         }
+        field(3; "Expiration Filter"; Date) { FieldClass = FlowFilter; }
     }
     keys
     {

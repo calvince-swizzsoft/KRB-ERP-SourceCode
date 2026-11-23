@@ -18,6 +18,64 @@ codeunit 59082 "Instant Loan Block Tests"
     end;
 
     [Test]
+    procedure TimedBlockExpiresOnScheduledDate()
+    var
+        MemberBlock: Record "Instant Loan Member Block";
+        History: Record "Instant Loan Block History";
+        ExpiryDate: Date;
+    begin
+        CreateMember();
+        asserterror BlockMgt.BlockForDays(MemberNo, false, 0);
+        asserterror BlockMgt.BlockForDays(MemberNo, false, 2);
+        CreateLoanInArrears('BLOCK-ARREARS-1', 10, false);
+        CreateLoanInArrears('BLOCK-ARREARS-2', 37, false);
+        CreateLoanInArrears('BLOCK-ARREARS-3', 80, true);
+        BlockMgt.BlockForDays(MemberNo, false, 2);
+        if Portal.OnlineLoanApplication(MemberNo, 'LT006', 1000, '', 1, 0, 0, '', 0) <>
+           'Failed: Your loan Development Loan (BLOCK-ARREARS-2) has run into default for 37 days. You are blocked from applying for instant loans for 2 days.' then
+            Error('The portal response must identify the most overdue loan and state both durations in days.');
+        ExpiryDate := Today() + 2;
+        MemberBlock.Get(MemberNo);
+        if MemberBlock."Expires On" <> ExpiryDate then
+            Error('The block must expire after the selected number of days.');
+        if not MemberBlock.IsActive(ExpiryDate - 1) or MemberBlock.IsActive(ExpiryDate) then
+            Error('The block must end on its expiration date.');
+        History.SetRange("Member No.", MemberNo);
+        History.FindLast();
+        if History."Expires On" <> ExpiryDate then
+            Error('The block expiration date must be recorded in history.');
+
+        MemberBlock."Expires On" := Today();
+        MemberBlock.Modify(true);
+        BlockMgt.CheckAvailable(MemberNo, 'LT006');
+        BlockMgt.CheckAvailable(MemberNo, 'LT007');
+        BlockMgt.BlockForDays(MemberNo, false, 1);
+        if not BlockMgt.IsBlocked(MemberNo, 'LT007') then
+            Error('An expired block must allow a new timed block.');
+    end;
+
+    [Test]
+    procedure ExistingDayBlockWithoutLoanReferenceShowsCurrentOverdueLoan()
+    var
+        MemberBlock: Record "Instant Loan Member Block";
+    begin
+        CreateMember();
+        MemberBlock."Member No." := MemberNo;
+        MemberBlock.Blocked := true;
+        MemberBlock."Expires On" := Today() + 30;
+        MemberBlock."Block Duration (Days)" := 30;
+        MemberBlock."Arrears Days at Block" := 5;
+        MemberBlock.Insert(true);
+        CreateLoanInArrears('BLOCK-ARREARS-1', 2, false);
+        CreateLoanInArrears('BLOCK-ARREARS-2', 6, false);
+        CreateLoanInArrears('BLOCK-ARREARS-3', 80, true);
+
+        if Portal.OnlineLoanApplication(MemberNo, 'LT006', 1000, '', 1, 0, 0, '', 0) <>
+           'Failed: Your loan Development Loan (BLOCK-ARREARS-2) has run into default for 6 days. You are blocked from applying for instant loans for 30 days.' then
+            Error('The portal must show the current overdue loan when an existing block has no loan reference.');
+    end;
+
+    [Test]
     procedure UnblockRestoresAccessAndKeepsHistory()
     var
         History: Record "Instant Loan Block History";
@@ -60,8 +118,9 @@ codeunit 59082 "Instant Loan Block Tests"
         CreateMember();
         BlockMgt.SetBlocked(MemberNo, true, false);
         BeforeCount := Applications.Count();
-        AssertUnavailable(Portal.OnlineLoanApplication(MemberNo, 'LT006', 1000, '', 1, 0, 0, '', 0));
-        AssertUnavailable(Portal.OnlineLoanApplication(MemberNo, 'LT007', 1000, '', 1, 0, 0, '', 0));
+        if (Portal.OnlineLoanApplication(MemberNo, 'LT006', 1000, '', 1, 0, 0, '', 0) <> 'Failed: Loan not available') or
+           (Portal.OnlineLoanApplication(MemberNo, 'LT007', 1000, '', 1, 0, 0, '', 0) <> 'Failed: Loan not available') then
+            Error('Existing blocks must return a generic application failure.');
         if Applications.Count() <> BeforeCount then
             Error('Blocked creation must not insert an application.');
         asserterror Qualification := Portal.GetLoanQualification(MemberNo, 'LT007');
@@ -145,6 +204,32 @@ codeunit 59082 "Instant Loan Block Tests"
         Loan.Get(MemberNo);
         if (Loan."Requested Amount" <> 1000) or (Loan."Loan Status" <> Loan."Loan Status"::Application) then
             Error('Blocked legacy calls must leave the loan unchanged.');
+    end;
+
+    local procedure CreateLoanInArrears(LoanNo: Code[20]; ArrearsDays: Integer; Reversed: Boolean)
+    var
+        Loan: Record "Loans Register";
+        LedgerEntry: Record "Cust. Ledger Entry";
+    begin
+        Loan.Init();
+        Loan."Loan  No." := LoanNo;
+        Loan."Client Code" := MemberNo;
+        Loan.Posted := true;
+        Loan.Reversed := Reversed;
+        Loan."Amount in Arrears" := 100;
+        Loan."No of Days in Arrears" := ArrearsDays;
+        Loan."Loan Product Type Name" := 'Development Loan';
+        Loan.Insert();
+
+        LedgerEntry.LockTable();
+        if LedgerEntry.FindLast() then;
+        LedgerEntry."Entry No." += 1;
+        LedgerEntry.Init();
+        LedgerEntry."Customer No." := MemberNo;
+        LedgerEntry."Loan No" := LoanNo;
+        LedgerEntry."Transaction Type" := LedgerEntry."Transaction Type"::Loan;
+        LedgerEntry."Amount Posted" := 100;
+        LedgerEntry.Insert();
     end;
 
     local procedure CreateMember()

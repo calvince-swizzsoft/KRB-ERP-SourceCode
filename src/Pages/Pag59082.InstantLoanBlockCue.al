@@ -18,6 +18,7 @@ page 59082 "Instant Loan Block Cue"
                     trigger OnDrillDown()
                     begin
                         Page.RunModal(Page::"Instant Loan Member Blocks");
+                        Rec.SetFilter("Expiration Filter", '%1|>%2', 0D, Today());
                         Rec.CalcFields("Blocked Members");
                         CurrPage.Update(false);
                     end;
@@ -29,5 +30,6 @@ page 59082 "Instant Loan Block Cue"
     begin
         Rec.Init();
         Rec.Insert();
+        Rec.SetFilter("Expiration Filter", '%1|>%2', 0D, Today());
     end;
 }

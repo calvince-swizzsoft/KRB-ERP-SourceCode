@@ -4,6 +4,7 @@ permissionset 59081 "KRB INSTANT BLOCKS"
     Caption = 'Maintain instant loan blocks';
     Permissions =
         tabledata Customer = R,
+        tabledata "Loans Register" = R,
         tabledata "Instant Loan Member Block" = RIM,
         tabledata "Instant Loan Block History" = Ri,
         table "Instant Loan Member Block" = X,
@@ -12,6 +13,7 @@ permissionset 59081 "KRB INSTANT BLOCKS"
         table "Instant Loan Block Cue" = X,
         codeunit "Instant Loan Block Mgt." = X,
         page "Instant Loan Member Blocks" = X,
+        page "Instant Loan Block Duration" = X,
         page "Instant Loan Block History" = X,
         page "Instant Loan Block Cue" = X,
         page "Finance Role Center" = X;
@@ -22,6 +24,7 @@ permissionset 59082 "KRB INSTANT READ"
     Assignable = true;
     Caption = 'Read instant loan blocks';
     Permissions =
+        tabledata "Loans Register" = r,
         tabledata "Instant Loan Member Block" = R,
         table "Instant Loan Member Block" = X,
         codeunit "Instant Loan Block Mgt." = X;

@@ -37,6 +37,7 @@ pageextension 59084 "General Cue Loan Blocks" extends "General Cue"
         if not MemberBlock.ReadPermission() then
             exit;
         MemberBlock.SetRange(Blocked, true);
+        MemberBlock.SetFilter("Expires On", '%1|>%2', 0D, Today());
         BlockedMemberCount := MemberBlock.Count();
     end;
 

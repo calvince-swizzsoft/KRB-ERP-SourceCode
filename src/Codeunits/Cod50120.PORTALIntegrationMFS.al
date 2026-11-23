@@ -2336,15 +2336,16 @@ Codeunit 50120 "PORTALIntegration MFS"
         exit(Result);
     end;
 
-    procedure OnlineLoanApplication(BosaNo: Code[60]; LoanType: Code[60]; LoanAmount: Decimal; loanpurpose: Text; repaymentPeriod: Integer; DisbursementMode: Integer; RecoveryMode: Integer; AccountOrMpesaNo: Text; MemberBank: Integer) GeneratedApplicationNo: Code[60]
+    procedure OnlineLoanApplication(BosaNo: Code[60]; LoanType: Code[60]; LoanAmount: Decimal; loanpurpose: Text; repaymentPeriod: Integer; DisbursementMode: Integer; RecoveryMode: Integer; AccountOrMpesaNo: Text; MemberBank: Integer) GeneratedApplicationNo: Text
     var
         ObjLoanApplications: Record "Online Loan Application";
         ObjLoanRegister: Record "Loans Register";
         ObjLoansToOffset: Record "Loan Offset Details";
         ObjOnlineLoandToOffset: Record "Online Loan Offset Details";
     begin
-        if InstantLoanBlockMgt.IsBlocked(BosaNo, LoanType) then
-            exit(InstantLoanBlockMgt.UnavailableMessage());
+        GeneratedApplicationNo := InstantLoanBlockMgt.GetApplicationBlockMessage(BosaNo, LoanType);
+        if GeneratedApplicationNo <> '' then
+            exit(GeneratedApplicationNo);
         ObjLoanApplications.Reset;
 
         //LoanProductType.Get(LoanType);
