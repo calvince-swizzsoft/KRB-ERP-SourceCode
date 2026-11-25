@@ -294,6 +294,14 @@ page 50367 "Member Account Card"
             {
                 Caption = 'Other Details';
                 Editable = true;
+                field("Free Shares"; FreeShares)
+                {
+                    ApplicationArea = Basic;
+                    DecimalPlaces = 2 : 2;
+                    Editable = false;
+                    Importance = Promoted;
+                    ToolTip = 'Specifies the member deposits less the member guarantee liability.';
+                }
                 field("Contact Person"; Rec."Contact Person")
                 {
                     ApplicationArea = Basic;
@@ -1443,7 +1451,12 @@ page 50367 "Member Account Card"
     }
 
     trigger OnAfterGetRecord()
+    var
+        Factory: Codeunit "Swizzsoft Factory.";
     begin
+        Rec.CalcFields("Current Shares");
+        FreeShares := Rec."Current Shares" - Factory.CalculateMemberGuaranteeLiability(Rec."No.");
+
         FosaName := '';
         if Rec."Physical States" = Rec."physical states"::Deaf then begin
             Message('This Member is Deaf')
@@ -1579,6 +1592,7 @@ page 50367 "Member Account Card"
         GeneralSetup: Record "Sacco General Set-Up";
         Loans: Record "Loans Register";
         AvailableShares: Decimal;
+        FreeShares: Decimal;
         Gnljnline: Record "Gen. Journal Line";
         Interest: Decimal;
         LineN: Integer;
